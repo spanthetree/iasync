@@ -1,0 +1,13 @@
+; iasync - In-game Armory Sync
+; Exports ZOS Armory build data to SavedVariables for the ESO Armory web app.
+;
+; https://account.elderscrollsonline.com/add-on-terms
+
+## Title: iasync
+## Description: Exports in-game Armory builds to SavedVariables
+## Author: spanthetree
+## Version: 1.0.0
+## APIVersion: 101049
+## SavedVariables: iasync_data
+
+iasync.lua
