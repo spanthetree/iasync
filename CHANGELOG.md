@@ -2,6 +2,26 @@
 
 All notable changes to iasync will be documented here.
 
+## [1.1.0] — 2026-05-19
+
+### Added
+
+**Achievement scanning**
+- `ScanAchievements()` iterates all categories and subcategories via `GetNumAchievementCategories` / `GetAchievementCategoryInfo` / `GetAchievementSubCategoryInfo` / `GetAchievementId`
+- Per-achievement capture: name, description, points, icon, completion status, completion date, Unix completion timestamp (`GetAchievementTimestamp`), persistence level (`GetAchievementPersistenceLevel`), criteria progress (`GetAchievementNumCriteria` / `GetAchievementCriterion`), and rewards (title, dye, collectible, item)
+- Account-wide achievements routed to `iasync_data.achievements.account`; character-specific achievements stored under `chars[charId].achievements`
+- Category and subcategory summaries with API-provided `earnedPts` / `totalPts` (match in-game UI) plus computed `total` / `complete` counts
+- `EVENT_ACHIEVEMENT_AWARDED` handler (`OnAchievementAwarded`) for real-time updates on mid-session unlocks
+- `ScanAchievements` called from `OnPlayerActivated` (5 s delay) and from `iasync_scan()`
+- `iasync_data.achievements` initialised in `OnAddonLoaded`
+
+**Account name capture**
+- `iasync_data.accountName` populated via `GetDisplayName()` on every character scan
+
+### Changed
+
+- Removed multi-line block comments that restated what the code already said; retained only non-obvious constraint comments
+
 ## [1.0.0] — 2026-05-19
 
 Initial release.

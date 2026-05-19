@@ -43,7 +43,14 @@ If you want a searchable in-game item list, use Inventory Insight. If you want t
 - Contents of BAG_GUILDBANK, stored under the guild's name
 - Note: `guildBanks` data is captured in SavedVariables but is not currently read by the ESO Armory `data_processor.py` and will not appear in the web app.
 
-**Real-time** — any `EVENT_INVENTORY_SINGLE_SLOT_UPDATE` fires `UpdateSlot`, keeping data current without a full re-scan.
+**Achievements** (5 s after zone transition, and on real-time award)
+- Full achievement scan across all categories and subcategories
+- Per-achievement: name, description, points, icon, completion status, completion date and Unix timestamp, persistence level, criteria progress, and any rewards (title, dye, collectible, item)
+- Account-wide achievements stored in `iasync_data.achievements.account`; character-specific achievements stored under `chars[charId].achievements`
+- Category and subcategory point summaries (earned/total) pulled directly from the ESO API to match the in-game UI exactly
+- Real-time update via `EVENT_ACHIEVEMENT_AWARDED` for achievements earned mid-session
+
+**Real-time** — any `EVENT_INVENTORY_SINGLE_SLOT_UPDATE` fires `UpdateSlot`, keeping inventory data current without a full re-scan.
 
 ## Installation
 
@@ -66,6 +73,7 @@ The ESO Armory server reads this file directly and watches it for changes.
 
 ```
 iasync_data = {
+  accountName,          -- display name from GetDisplayName()
   chars = {
     ["<charId>"] = {
       name, race, class, alliance,
@@ -81,6 +89,15 @@ iasync_data = {
       build_cp = { earned = N, slots = { [slot] = abilityId } },
       abilityNames = { [abilityId] = "Name" },
       cpNames      = { [abilityId] = "Name" },
+      achievements = {
+        [achId] = {
+          name, desc, points, icon, complete, cat, subcat,
+          completionDate, completionTimestamp,  -- only when complete
+          persistenceLevel,
+          criteria = { [i] = { desc, cur, req } },
+          rewards  = { { type, name, id, ... }, ... },
+        }
+      },
       lastUpdate,
     }
   },
@@ -99,6 +116,18 @@ iasync_data = {
       },
       lastUpdate,
     }
+  },
+  achievements = {
+    account = {
+      [achId] = { ... }   -- account-wide achievements (same structure as char achievements)
+    },
+    categories = {
+      [catIdx] = {
+        name, total, complete, earnedPts, totalPts,
+        subcats = { [subIdx] = { name, total, complete, earnedPts, totalPts } },
+      }
+    },
+    earnedPts, totalPts, lastUpdate,
   },
   abilityNames = {},   -- legacy; kept for backwards compat, not actively written
   cpNames      = {},   -- legacy; kept for backwards compat, not actively written

@@ -63,12 +63,10 @@ local function CaptureSlot(bagId, slot)
 
     local link = GetItemLink(bagId, slot, LINK_STYLE_BRACKETS)
 
-    -- Trait
     local traitType = GetItemTrait(bagId, slot)
     local traitName = TRAIT_NAMES[traitType]
 
-    -- Enchantment: GetItemLinkEnchantInfo returns (hasEnchant, enchantName).
-    -- The second return is the display name string directly, not an ability ID.
+    -- GetItemLinkEnchantInfo returns (hasEnchant, enchantName) — the name directly, not an ID.
     local enchantId   = 0
     local enchantName = nil
     local hasEnchant, enchantStr = GetItemLinkEnchantInfo(link)
@@ -76,7 +74,6 @@ local function CaptureSlot(bagId, slot)
         enchantName = enchantStr
     end
 
-    -- Set membership: GetItemLinkSetInfo returns (hasSet, name, bonuses, equipped, max, id)
     local setName = nil
     local setId   = nil
     local hasSet, sName, _, _, _, sId = GetItemLinkSetInfo(link)
@@ -85,12 +82,9 @@ local function CaptureSlot(bagId, slot)
         setId   = sId
     end
 
-    -- Quality and filter type (first return of GetItemFilterTypeInfo)
     local quality    = _qualityFn(bagId, slot)
     local filterType = GetItemFilterTypeInfo(bagId, slot)
-
-    -- GetItemInfo returns (icon, stackCount, sellPrice, ...). The second value is
-    -- the stack count and works correctly for all bag types including BAG_VIRTUAL.
+    -- select(2, ...) = stackCount; works for all bag types including BAG_VIRTUAL.
     local qty = select(2, GetItemInfo(bagId, slot)) or 1
 
     return {
@@ -124,8 +118,7 @@ end
 -- ── Character build snapshot (bars, attributes, mundus, CP) ─────────────────
 
 local function ScanBuild(c)
-    -- Action bars: slots 3-7 = skills, slot 8 = ultimate.
-    -- HOTBAR_CATEGORY_PRIMARY/BACKUP are ESO globals; fall back to 1/2 if undefined.
+    -- slots 3-7 = skills, slot 8 = ultimate; HOTBAR_CATEGORY_* fall back to 1/2 if absent.
     local primaryCat = HOTBAR_CATEGORY_PRIMARY or 1
     local backupCat  = HOTBAR_CATEGORY_BACKUP  or 2
     local buildBars  = {}
@@ -147,7 +140,6 @@ local function ScanBuild(c)
     end
     c.build_bars = buildBars
 
-    -- Attribute points spent by the player (not including base stats from race/class).
     local attrs = {}
     for _, pair in ipairs({
         { "health",  ATTRIBUTE_HEALTH  or 1 },
@@ -178,8 +170,6 @@ local function ScanBuild(c)
     end
     c.build_mundus = (#mundusStones > 0) and mundusStones or nil
 
-    -- Champion points: slotted skills live on HOTBAR_CATEGORY_CHAMPION, slots 1-12.
-    -- Confirmed via ESO API: GetSlotBoundId(slot, HOTBAR_CATEGORY_CHAMPION), slots 1-12.
     local cpEarned = 0
     local ok0, pts = pcall(GetPlayerChampionPointsEarned)
     if ok0 and pts then cpEarned = pts end
@@ -204,9 +194,10 @@ end
 
 local function ScanCharacterBags()
     local charId = tostring(GetCurrentCharacterId())
-    d(string.format("[iasync] Scanning character bags (id=%s)...", charId))
     iasync_data.chars[charId] = iasync_data.chars[charId] or {}
     local c = iasync_data.chars[charId]
+
+    iasync_data.accountName = GetDisplayName()
 
     c.name     = GetUnitName("player")
     c.race     = (GetUnitRace("player"))
@@ -245,10 +236,8 @@ local function ScanCharacterBags()
 end
 
 -- ── Personal bank (on open) ──────────────────────────────────────────────────
--- Bank bags are inaccessible at login; scan only when the player opens the bank UI.
 
--- BAG_VIRTUAL (craft bag) uses a linked-list iterator instead of numeric slots.
--- GetNextVirtualBagSlotId(nil) returns the first slot; subsequent calls advance it.
+-- BAG_VIRTUAL uses a linked-list iterator — slot IDs are not contiguous integers.
 local function ScanVirtualBag()
     local slots = {}
     local slotId = GetNextVirtualBagSlotId(nil)
@@ -268,10 +257,8 @@ local function ScanBankBags()
         bank.bags[bagId] = ScanBag(bagId)
     end
 
-    -- Craft bag (BAG_VIRTUAL) requires its own iterator
     bank.bags[BAG_VIRTUAL] = ScanVirtualBag()
 
-    -- Bank currency is readable while the bank is open
     bank.gold = GetCurrencyAmount(CURT_MONEY,           CURRENCY_LOCATION_BANK) or bank.gold or 0
     bank.ap   = GetCurrencyAmount(CURT_ALLIANCE_POINTS, CURRENCY_LOCATION_BANK) or bank.ap   or 0
     bank.tv   = GetCurrencyAmount(CURT_TELVAR_STONES,   CURRENCY_LOCATION_BANK) or bank.tv   or 0
@@ -283,13 +270,9 @@ local function ScanBankBags()
 end
 
 -- ── House chests (when entering a house) ─────────────────────────────────────
--- House container bags are only accessible while in the house. We probe each
--- bag ID in the house range and store only those with GetBagSize > 0.
--- A short delay is used so container data has time to load after zone transition.
 
 local function GetHouseKey()
-    -- GetCurrentZoneHouseId() returns the collectible ID of the current house.
-    -- GetCollectibleName() resolves it to a display string (e.g. "Mournhold Suite").
+    -- GetCurrentZoneHouseId returns the house collectible ID, used as the storage key.
     if GetCurrentZoneHouseId then
         local houseId = GetCurrentZoneHouseId()
         if houseId and houseId > 0 then
@@ -303,8 +286,6 @@ local function GetHouseKey()
 end
 
 local function ScanHouseChests()
-    -- Use GetCurrentZoneHouseId() as the house detection; returns 0 when not in a house.
-    -- IsPlayerInHouse() is not a standard ESO API function.
     local houseKey, houseName = GetHouseKey()
     if houseKey == "0" then return end
     iasync_data.houses[houseKey] = iasync_data.houses[houseKey] or {}
@@ -334,8 +315,6 @@ end
 -- ── Guild bank (on open) ─────────────────────────────────────────────────────
 
 local function ScanGuildBank()
-    -- Walk guilds to find an ID; currently stores under first guild found.
-    -- TODO: improve multi-guild detection once a GetInteractingGuildId API exists.
     local guildName = "GuildBank"
     for i = 1, GetNumGuilds() do
         local id = GetGuildId(i)
@@ -353,9 +332,6 @@ local function ScanGuildBank()
 end
 
 -- ── Build name resolution ────────────────────────────────────────────────────
--- Resolves ability/CP names for the CURRENT character only and stores them on
--- that character's entry. Names are never shared across characters so each login
--- only overwrites its own data, preserving other characters' resolved names.
 
 local function ResolveBuildNames()
     local charId = tostring(GetCurrentCharacterId())
@@ -417,7 +393,6 @@ local function UpdateSlot(bagId, slotIndex)
 
     elseif IS_BANK_BAG[bagId] then
         local bank = iasync_data.bank
-        -- BAG_VIRTUAL slot updates use the same slotId key space as ScanVirtualBag
         bank.bags[bagId] = bank.bags[bagId] or {}
         bank.bags[bagId][slotIndex] = data
 
@@ -440,6 +415,231 @@ local function UpdateSlot(bagId, slotIndex)
     end
 end
 
+-- ── Achievements ─────────────────────────────────────────────────────────────
+
+local function CaptureAchievement(achId, catName, subcatName)
+    local name, desc, points, icon, complete, date = GetAchievementInfo(achId)
+    if not name or name == "" then return nil end
+
+    local entry = {
+        name     = name,
+        desc     = desc,
+        points   = points or 0,
+        icon     = (icon and icon ~= "") and icon or nil,
+        complete = complete and true or false,
+        cat      = catName,
+    }
+    if subcatName then entry.subcat = subcatName end
+    if complete and date and date ~= "" then entry.completionDate = date end
+
+    if complete and GetAchievementTimestamp then
+        local ok, ts = pcall(GetAchievementTimestamp, achId)
+        if ok and ts and ts > 0 then entry.completionTimestamp = ts end
+    end
+
+    -- Persistence level — stored so Python can distinguish account-wide vs char without
+    -- relying on routing logic that depends on ESO constants being present.
+    if GetAchievementPersistenceLevel then
+        local ok, lvl = pcall(GetAchievementPersistenceLevel, achId)
+        if ok and lvl then entry.persistenceLevel = lvl end
+    end
+
+    local numCrit = GetAchievementNumCriteria(achId) or 0
+    if numCrit > 0 then
+        local criteria = {}
+        for i = 1, numCrit do
+            local critDesc, cur, req = GetAchievementCriterion(achId, i)
+            if critDesc and critDesc ~= "" then
+                criteria[i] = { desc = critDesc, cur = cur or 0, req = req or 1 }
+            end
+        end
+        if next(criteria) then entry.criteria = criteria end
+    end
+
+    -- Rewards: call each type function once per achievement (no per-index loop;
+    -- GetAchievementNumRewards does not take an achId and returns a global count).
+    local rewards = {}
+    if GetAchievementRewardTitle then
+        local ok, a, b = pcall(GetAchievementRewardTitle, achId)
+        if ok then
+            local tId   = type(a) == "number" and a or nil
+            local tName = type(b) == "string" and b ~= "" and b
+                       or type(a) == "string" and a ~= "" and a or nil
+            if tName then rewards[#rewards + 1] = { type = "title", name = tName, id = tId } end
+        end
+    end
+    if GetAchievementRewardDye then
+        local ok, a, b, c = pcall(GetAchievementRewardDye, achId)
+        if ok then
+            -- Boolean-first return common in ESO: (hasDye, dyeId, dyeName) or (dyeId, dyeName)
+            local dId   = type(a) == "number" and a or (type(b) == "number" and b or nil)
+            local dName = (type(c) == "string" and c ~= "") and c
+                       or (type(b) == "string" and b ~= "") and b or nil
+            if dId and dId > 0 then
+                rewards[#rewards + 1] = { type = "dye", id = dId, name = dName }
+            end
+        end
+    end
+    if GetAchievementRewardCollectible then
+        local ok, a, b = pcall(GetAchievementRewardCollectible, achId)
+        if ok then
+            local cId = type(a) == "number" and a or (type(b) == "number" and b or nil)
+            if cId and cId > 0 then
+                local ok2, cName = pcall(GetCollectibleName, cId)
+                rewards[#rewards + 1] = { type = "collectible", id = cId,
+                                          name = (ok2 and type(cName) == "string" and cName ~= "") and cName or nil }
+            end
+        end
+    end
+    if GetAchievementRewardItem then
+        local ok, a, b, c, d = pcall(GetAchievementRewardItem, achId)
+        if ok then
+            -- Handle (hasItem, icon, name, count) or (icon, name, count)
+            local iIcon  = type(a) == "string" and a or (type(b) == "string" and b or nil)
+            local iName  = (type(b) == "string" and b ~= "" and b ~= iIcon) and b
+                        or (type(c) == "string" and c ~= "") and c or nil
+            local iCount = type(d) == "number" and d or (type(c) == "number" and c or nil)
+            if iName and iName ~= "" then
+                rewards[#rewards + 1] = { type = "item", name = iName, qty = iCount,
+                                          icon = (iIcon and iIcon ~= "") and iIcon or nil }
+            end
+        end
+    end
+    if #rewards > 0 then entry.rewards = rewards end
+
+    return entry
+end
+
+local function ScanAchievements()
+    local charId = tostring(GetCurrentCharacterId())
+    local c = iasync_data.chars[charId]
+    if not c then return end
+
+    local accountAchs, charAchs = {}, {}
+    local accountCount, charCount = 0, 0
+    local catSummaries = {}
+
+    local function storeAch(achId, catName, subcatName, catSumm, subcatSumm)
+        local ok, entry = pcall(CaptureAchievement, achId, catName, subcatName)
+        if not (ok and entry) then return end
+
+        -- earnedPts/totalPts come from the API; only accumulate counts here.
+        catSumm.total = catSumm.total + 1
+        if entry.complete then catSumm.complete = catSumm.complete + 1 end
+        if subcatSumm then
+            subcatSumm.total = subcatSumm.total + 1
+            if entry.complete then subcatSumm.complete = subcatSumm.complete + 1 end
+        end
+
+        local wide = false
+        if GetAchievementPersistenceLevel and ACHIEVEMENT_PERSISTENCE_LEVEL_ACCOUNT then
+            local ok, lvl = pcall(GetAchievementPersistenceLevel, achId)
+            wide = ok and lvl == ACHIEVEMENT_PERSISTENCE_LEVEL_ACCOUNT
+        elseif IsAchievementAccountWide then
+            wide = IsAchievementAccountWide(achId) and true or false
+        end
+        if wide then
+            if not accountAchs[achId] then accountCount = accountCount + 1 end
+            accountAchs[achId] = entry
+        else
+            if not charAchs[achId] then charCount = charCount + 1 end
+            charAchs[achId] = entry
+        end
+    end
+
+    local function scanCategory(catIdx)
+        local ok1, catName, numSubCats, _, apiEarnedPts, apiTotalPts = pcall(GetAchievementCategoryInfo, catIdx)
+        if not ok1 or not catName then return end
+        numSubCats = numSubCats or 0
+
+        -- earnedPts/totalPts come from the API (match game UI exactly); counts are computed.
+        local catSumm = {
+            name      = catName,
+            total     = 0,
+            complete  = 0,
+            earnedPts = apiEarnedPts or 0,
+            totalPts  = apiTotalPts  or 0,
+            subcats   = {},
+        }
+        catSummaries[catIdx] = catSumm
+
+        for subIdx = 1, numSubCats do
+            local ok2, subName, subNumAchs, apiSubEarned, apiSubTotal = pcall(GetAchievementSubCategoryInfo, catIdx, subIdx)
+            if ok2 and subName then
+                subNumAchs = subNumAchs or 0
+                local subcatSumm = {
+                    name      = subName,
+                    total     = 0,
+                    complete  = 0,
+                    earnedPts = apiSubEarned or 0,
+                    totalPts  = apiSubTotal  or 0,
+                }
+                catSumm.subcats[subIdx] = subcatSumm
+                for achIdx = 1, subNumAchs do
+                    local ok3, achId = pcall(GetAchievementId, catIdx, subIdx, achIdx)
+                    if ok3 and achId and achId > 0 then storeAch(achId, catName, subName, catSumm, subcatSumm) end
+                end
+            end
+        end
+    end
+
+    local numCats = 0
+    local ok0, n = pcall(GetNumAchievementCategories)
+    if ok0 and n then numCats = n end
+
+    for catIdx = 1, numCats do
+        scanCategory(catIdx)
+    end
+
+    local totalEarned, totalPts = 0, 0
+    for _, cs in pairs(catSummaries) do
+        totalEarned = totalEarned + cs.earnedPts
+        totalPts    = totalPts    + cs.totalPts
+    end
+
+    iasync_data.achievements = {
+        account    = accountAchs,
+        categories = catSummaries,
+        earnedPts  = totalEarned,
+        totalPts   = totalPts,
+        lastUpdate = GetTimeStamp(),
+    }
+    c.achievements = charAchs
+    d(string.format("[iasync] Achievements: %d account-wide · %d character-specific · %d/%d pts",
+        accountCount, charCount, totalEarned, totalPts))
+end
+
+local function OnAchievementAwarded(_, achId)
+    local ok, name, desc, points, _, _, date = pcall(GetAchievementInfo, achId)
+    if not ok or not name or name == "" then return end
+    local entry = { name = name, desc = desc, points = points or 0, complete = true }
+    if date and date ~= "" then entry.completionDate = date end
+    if GetAchievementTimestamp then
+        local ok2, ts = pcall(GetAchievementTimestamp, achId)
+        if ok2 and ts and ts > 0 then entry.completionTimestamp = ts end
+    end
+    local wide = false
+    if GetAchievementPersistenceLevel and ACHIEVEMENT_PERSISTENCE_LEVEL_ACCOUNT then
+        local ok2, lvl = pcall(GetAchievementPersistenceLevel, achId)
+        wide = ok2 and lvl == ACHIEVEMENT_PERSISTENCE_LEVEL_ACCOUNT
+    elseif IsAchievementAccountWide then
+        wide = IsAchievementAccountWide(achId) and true or false
+    end
+    if wide then
+        iasync_data.achievements = iasync_data.achievements or { account = {}, lastUpdate = 0 }
+        iasync_data.achievements.account[achId] = entry
+        iasync_data.achievements.lastUpdate = GetTimeStamp()
+    else
+        local charId = tostring(GetCurrentCharacterId())
+        local c = iasync_data.chars[charId]
+        if c then
+            c.achievements = c.achievements or {}
+            c.achievements[achId] = entry
+        end
+    end
+    d(string.format("[iasync] Achievement earned: %s", name))
+end
+
 -- ── Event handlers ───────────────────────────────────────────────────────────
 
 local function OnPlayerActivated()
@@ -448,6 +648,7 @@ local function OnPlayerActivated()
         ResolveBuildNames()
     end, 2000)
     zo_callLater(ScanHouseChests, 3000)
+    zo_callLater(ScanAchievements, 5000)
 end
 
 local function OnInventorySlotUpdate(_, bagId, slotIndex)
@@ -468,6 +669,7 @@ local function OnAddonLoaded(_, addonName)
     iasync_data.houses       = iasync_data.houses       or {}
     iasync_data.abilityNames = iasync_data.abilityNames or {}
     iasync_data.cpNames      = iasync_data.cpNames      or {}
+    iasync_data.achievements = iasync_data.achievements or { account = {} }
     EVENT_MANAGER:UnregisterForEvent(ADDON_NAME .. "_Load", EVENT_ADD_ON_LOADED)
 end
 
@@ -476,9 +678,12 @@ EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Player",    EVENT_PLAYER_ACTIVATE
 EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Inv",       EVENT_INVENTORY_SINGLE_SLOT_UPDATE, OnInventorySlotUpdate)
 EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Bank",      EVENT_OPEN_BANK,                    ScanBankBags)
 EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_GuildBank", EVENT_OPEN_GUILD_BANK,              ScanGuildBank)
+EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Ach",       EVENT_ACHIEVEMENT_AWARDED,          OnAchievementAwarded)
 
 -- Manual trigger for testing: /script iasync_scan()
 function iasync_scan()
     ScanCharacterBags()
     ResolveBuildNames()
+    ScanAchievements()
 end
+

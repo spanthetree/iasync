@@ -43,6 +43,22 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
 | `GetCurrentZoneHouseId()` | Non-zero when inside a house; used to key house data |
 | `GetCollectibleName(id)` | Resolves house collectible ID to display name |
 | `zo_callLater(fn, ms)` | Deferred execution; used for house chest scan (3 000 ms) |
+| `GetNumAchievementCategories()` | Total number of top-level achievement categories (confirmed: returns 47) |
+| `GetAchievementCategoryInfo(categoryIndex)` | Takes a **1-based index**, not an ID. Returns `(name, numSubCategories, ???, earnedPts, totalPts)`. r4/r5 are confirmed to match the in-game summary UI (e.g. CHARACTER: 3120/5325). r3 purpose unknown. **`GetAchievementCategoryId` does not exist** — confirmed nil at runtime. |
+| `GetAchievementSubCategoryInfo(categoryIndex, subCategoryIndex)` | Returns `(name, numAchievements, earnedPts, totalPts)`. r2 is the achievement count to iterate; r3/r4 are API-provided earned/total points for the subcategory. |
+| `GetAchievementId(categoryIndex, subCategoryIndex, achievementIndex)` | **3-param, all indices.** `subCategoryIndex=0` returns `achId=0` (confirmed in-game) — all achievements live in subcategories (subIdx ≥ 1). |
+| `GetAchievementInfo(achievementId)` | `(name, description, points, icon, complete, date)` |
+| `GetAchievementNumCriteria(achievementId)` | Number of criteria for an achievement. **`GetNumAchievementCriteria` does not exist** (confirmed nil). |
+| `GetAchievementCriterion(achievementId, criterionIndex)` | `(description, numCompleted, numRequired)`. **`GetAchievementCriteriaInfo` and `GetAchievementCriterionInfo` do not exist** (confirmed nil). |
+| `IsAchievementAccountWide` | **Does not exist** in this API version (confirmed nil). Use `GetAchievementPersistenceLevel` instead. |
+| `GetAchievementPersistenceLevel(achievementId)` | Returns an integer persistence level. Compare against `ACHIEVEMENT_PERSISTENCE_LEVEL_ACCOUNT` to identify account-wide achievements. Both the function and the constant may be absent on older API versions — guard with existence checks before using for routing. |
+| `GetAchievementTimestamp(achievementId)` | Returns a numeric Unix-style timestamp for when the achievement was completed, or 0/nil if incomplete. More reliable than the date string returned by `GetAchievementInfo` r6 for sorting and comparison. |
+| `GetAchievementNumRewards()` | **Does NOT take an achievementId.** Returns a global reward count (confirmed: calling with an achId arg still returns the same large global value). Do not use to iterate per-achievement rewards — use this only to check if the rewards system is available. |
+| `GetAchievementRewardTitle(achievementId)` | Returns `(titleId, titleName)` or similar for the title reward. Call once per achievement — does NOT take a reward index. Returns nil/empty if no title reward. |
+| `GetAchievementRewardDye(achievementId)` | Returns `(dyeId, dyeName)`. Call once per achievement. |
+| `GetAchievementRewardCollectible(achievementId)` | Returns `collectibleId`. Resolve to name via `pcall(GetCollectibleName, cId)` — must be pcall'd. |
+| `GetAchievementRewardItem(achievementId)` | Returns `(icon, name, count)` or similar. Call once per achievement. |
+| `GetAchievementRewardPoints(achievementId)` | Returns point value for the reward. |
 
 ## Data structure invariants
 
@@ -65,6 +81,15 @@ EVENT_OPEN_GUILD_BANK     → ScanGuildBank
 EVENT_INVENTORY_SINGLE_SLOT_UPDATE → OnInventorySlotUpdate → UpdateSlot
 ```
 
+## Lua version
+
+ESO runs **Lua 5.1**. Do not use any Lua 5.2+ features:
+
+- **No `goto` / `::labels::`** — use helper functions with early `return` to skip loop iterations instead.
+- No integer division operator `//`, no bitwise operators (`&`, `|`, `~`, `<<`, `>>`), no `<const>` / `<close>` attributes.
+
+When you need to skip to the next iteration of an outer loop, extract the loop body into a local function and use `return` to bail early. See `scanCategory()` inside `ScanAchievements` for the established pattern.
+
 ## Things to watch out for
 
 **API availability.** Some ESO globals (`HOTBAR_CATEGORY_PRIMARY`, `BAG_HOUSE_CONTAINER_1`, `GetDisplayQuality`) were added or renamed across patches. The addon uses `or`-fallbacks throughout (`HOTBAR_CATEGORY_PRIMARY or 1`). When adding new API calls, check whether they exist on the target APIVersion (currently `101049`) and add a guard if needed.
@@ -86,6 +111,17 @@ If you add a new field to any stored table:
 2. Initialise it with a safe default (do not leave it `nil` if the Python side expects it to always be present)
 3. Update `data_processor.py` to read the new field — use `.get("field", default)` to stay backwards compatible with existing SavedVariables files that predate the change
 4. Update the schema section in `README.md`
+
+## Git and release policy
+
+**Never perform any git actions** (commit, add, push, tag, reset, etc.). Do not stage files or create commits under any circumstances.
+
+When the user requests a **pre-commit** / release preparation:
+1. Update `README.md` with any relevant changes
+2. Update `CHANGELOG.md` (create it if absent) with a new entry for the version
+3. Bump the version number in `iasync.txt` (the `## Version:` line)
+
+Stop there. Do not run any git commands after completing those three steps.
 
 ## Testing
 
