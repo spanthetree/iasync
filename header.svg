@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 162">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#07080e"/>
+      <stop offset="100%" stop-color="#0d0900"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="860" height="162" fill="url(#bg)" rx="10"/>
+  <rect x="8" y="8" width="844" height="146" fill="none" stroke="#C4A040" stroke-width="1" rx="6" opacity="0.45"/>
+  <rect x="10" y="10" width="840" height="142" fill="none" stroke="#E8C864" stroke-width="0.4" rx="5" opacity="0.2"/>
+
+  <!-- corner chars -->
+  <text font-family="monospace" font-size="11" fill="#C4A040" opacity="0.9" x="11" y="21">╔</text>
+  <text font-family="monospace" font-size="11" fill="#C4A040" opacity="0.9" x="841" y="21">╗</text>
+  <text font-family="monospace" font-size="11" fill="#C4A040" opacity="0.9" x="11" y="152">╚</text>
+  <text font-family="monospace" font-size="11" fill="#C4A040" opacity="0.9" x="841" y="152">╝</text>
+
+  <!--
+    ANSI Shadow ASCII art for iasync
+    i (3 chars) | async (43 chars) = 46 chars total
+    font-size 13, Courier New ≈ 7.8px/char → 46 × 7.8 ≈ 359px
+    x offset = (860 − 359) / 2 ≈ 251 to center
+
+    Color: i → bright gold, async → gradient to deep amber (top bright, bottom deep)
+  -->
+
+  <!-- Line 1 -->
+  <text font-family="'Courier New',Courier,monospace" font-size="13" y="46" xml:space="preserve">
+    <tspan x="251" fill="#F0D878">██╗</tspan><tspan fill="#D4B850"> █████╗ ███████╗██╗   ██╗███╗   ██╗ ██████╗</tspan>
+  </text>
+  <!-- Line 2 -->
+  <text font-family="'Courier New',Courier,monospace" font-size="13" y="61" xml:space="preserve">
+    <tspan x="251" fill="#EAC864">██║</tspan><tspan fill="#CCA840">██╔══██╗██╔════╝╚██╗ ██╔╝████╗  ██║██╔════╝</tspan>
+  </text>
+  <!-- Line 3 -->
+  <text font-family="'Courier New',Courier,monospace" font-size="13" y="76" xml:space="preserve">
+    <tspan x="251" fill="#D8B450">██║</tspan><tspan fill="#BC9430">███████║███████╗ ╚████╔╝ ██╔██╗ ██║██║     </tspan>
+  </text>
+  <!-- Line 4 -->
+  <text font-family="'Courier New',Courier,monospace" font-size="13" y="91" xml:space="preserve">
+    <tspan x="251" fill="#C8A040">██║</tspan><tspan fill="#AC8420">██╔══██║╚════██║  ╚██╔╝  ██║╚██╗██║██║     </tspan>
+  </text>
+  <!-- Line 5 -->
+  <text font-family="'Courier New',Courier,monospace" font-size="13" y="106" xml:space="preserve">
+    <tspan x="251" fill="#B88C30">██║</tspan><tspan fill="#9A7010">██║  ██║███████║   ██║   ██║ ╚████║╚██████╗</tspan>
+  </text>
+  <!-- Line 6 -->
+  <text font-family="'Courier New',Courier,monospace" font-size="13" y="121" xml:space="preserve">
+    <tspan x="251" fill="#A87820">╚═╝</tspan><tspan fill="#8A5C08">╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═══╝ ╚═════╝</tspan>
+  </text>
+
+  <!-- tagline -->
+  <text font-family="'Courier New',Courier,monospace" font-size="11" text-anchor="middle"
+        x="430" y="143" fill="#C4A040" letter-spacing="2" opacity="0.65">
+    inventory · armory · sync · elder scrolls online
+  </text>
+</svg>

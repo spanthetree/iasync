@@ -28,6 +28,30 @@ local TRAIT_NAMES = {
     [58] = "Augmented",     [59] = "Bolstered",      [60] = "Vigorous",
 }
 
+-- ── Armor weight & weapon type name lookups ─────────────────────────────────
+
+local ARMOR_TYPE_NAMES = {
+    [ARMORTYPE_LIGHT   or 1] = "Light",
+    [ARMORTYPE_MEDIUM  or 2] = "Medium",
+    [ARMORTYPE_HEAVY   or 3] = "Heavy",
+}
+
+local WEAPON_TYPE_NAMES = {
+    [WEAPONTYPE_SWORD             or 1]  = "Sword",
+    [WEAPONTYPE_AXE               or 2]  = "Axe",
+    [WEAPONTYPE_HAMMER            or 3]  = "Hammer",
+    [WEAPONTYPE_DAGGER            or 4]  = "Dagger",
+    [WEAPONTYPE_TWO_HANDED_SWORD  or 5]  = "Two-Handed Sword",
+    [WEAPONTYPE_TWO_HANDED_AXE    or 6]  = "Two-Handed Axe",
+    [WEAPONTYPE_TWO_HANDED_HAMMER or 7]  = "Two-Handed Hammer",
+    [WEAPONTYPE_FIRE_STAFF        or 8]  = "Inferno Staff",
+    [WEAPONTYPE_FROST_STAFF       or 9]  = "Ice Staff",
+    [WEAPONTYPE_LIGHTNING_STAFF   or 10] = "Lightning Staff",
+    [WEAPONTYPE_RUNESTAFF         or 11] = "Restoration Staff",
+    [WEAPONTYPE_BOW               or 12] = "Bow",
+    [WEAPONTYPE_SHIELD            or 13] = "Shield",
+}
+
 -- ── Bag configuration ────────────────────────────────────────────────────────
 
 -- Resolve quality function once at load time; fall back through two API names.
@@ -87,6 +111,9 @@ local function CaptureSlot(bagId, slot)
     -- select(2, ...) = stackCount; works for all bag types including BAG_VIRTUAL.
     local qty = select(2, GetItemInfo(bagId, slot)) or 1
 
+    local armorType  = ARMOR_TYPE_NAMES[GetItemLinkArmorType(link)]
+    local weaponType = WEAPON_TYPE_NAMES[GetItemLinkWeaponType(link)]
+
     return {
         link        = link,
         name        = itemName,
@@ -99,6 +126,8 @@ local function CaptureSlot(bagId, slot)
         quality     = quality,
         filterType  = filterType,
         qty         = qty,
+        armorType   = armorType,
+        weaponType  = weaponType,
     }
 end
 
@@ -640,6 +669,89 @@ local function OnAchievementAwarded(_, achId)
     d(string.format("[iasync] Achievement earned: %s", name))
 end
 
+-- ── Stickerbook (set collection) ─────────────────────────────────────────────
+
+local function ScanStickerbook()
+    if not ITEM_SET_COLLECTIONS_DATA_MANAGER then
+        d("[iasync] Stickerbook: ITEM_SET_COLLECTIONS_DATA_MANAGER unavailable")
+        return
+    end
+
+    local sets = {}
+    local totalSets, collectedSets = 0, 0
+
+    local function processCategory(catData, topName, subName)
+        local ok, hasSubs = pcall(function() return catData:HasSubcategories() end)
+        if ok and hasSubs then
+            for _, subcat in catData:SubcategoryIterator() do
+                local nameOk, sName = pcall(function() return subcat:GetName() end)
+                processCategory(subcat, topName, (nameOk and sName) or subName)
+            end
+            return
+        end
+        for _, collData in catData:CollectionIterator() do
+            local ok2, setId = pcall(function() return collData:GetId() end)
+            if ok2 and setId then
+                local numTotal    = GetNumItemSetCollectionPieces(setId)        or 0
+                local numUnlocked = GetNumItemSetCollectionSlotsUnlocked(setId) or 0
+                totalSets = totalSets + 1
+                if numTotal > 0 and numUnlocked >= numTotal then collectedSets = collectedSets + 1 end
+
+                local pieces = {}
+                for i = 1, numTotal do
+                    local pieceId, slot = GetItemSetCollectionPieceInfo(setId, i)
+                    if slot then
+                        local filterType = GetEquipmentFilterTypeForItemSetCollectionSlot(slot) or 0
+                        local collected  = IsItemSetCollectionSlotUnlocked(setId, slot) and true or false
+                        local pieceName  = ""
+                        if pieceId then
+                            local ok3, link = pcall(GetItemSetCollectionPieceItemLink, pieceId,
+                                LINK_STYLE_DEFAULT or 1, ITEM_TRAIT_TYPE_NONE or 0)
+                            if ok3 and link and link ~= "" then
+                                local ok4, n = pcall(GetItemLinkName, link)
+                                if ok4 and n then pieceName = n end
+                            end
+                        end
+                        pieces[i] = {
+                            filterType = filterType,
+                            collected  = collected,
+                            name       = pieceName,
+                        }
+                    end
+                end
+
+                sets[setId] = {
+                    name         = GetItemSetName(setId) or "",
+                    category     = topName or "",
+                    subcategory  = (subName ~= topName) and subName or "",
+                    numCollected = numUnlocked,
+                    numTotal     = numTotal,
+                    pieces       = pieces,
+                }
+            end
+        end
+    end
+
+    local scanOk = pcall(function()
+        for _, catData in ITEM_SET_COLLECTIONS_DATA_MANAGER:TopLevelItemSetCollectionCategoryIterator() do
+            local nameOk, catName = pcall(function() return catData:GetName() end)
+            local name = (nameOk and catName) or "Unknown"
+            processCategory(catData, name, name)
+        end
+    end)
+
+    if not scanOk then
+        d("[iasync] Stickerbook: scan failed")
+        return
+    end
+
+    iasync_data.stickerbook = {
+        sets       = sets,
+        lastUpdate = GetTimeStamp(),
+    }
+    d(string.format("[iasync] Stickerbook: %d sets · %d fully collected", totalSets, collectedSets))
+end
+
 -- ── Event handlers ───────────────────────────────────────────────────────────
 
 local function OnPlayerActivated()
@@ -649,6 +761,7 @@ local function OnPlayerActivated()
     end, 2000)
     zo_callLater(ScanHouseChests, 3000)
     zo_callLater(ScanAchievements, 5000)
+    zo_callLater(ScanStickerbook, 7000)
 end
 
 local function OnInventorySlotUpdate(_, bagId, slotIndex)
@@ -670,6 +783,7 @@ local function OnAddonLoaded(_, addonName)
     iasync_data.abilityNames = iasync_data.abilityNames or {}
     iasync_data.cpNames      = iasync_data.cpNames      or {}
     iasync_data.achievements = iasync_data.achievements or { account = {} }
+    iasync_data.stickerbook  = iasync_data.stickerbook  or { sets = {} }
     EVENT_MANAGER:UnregisterForEvent(ADDON_NAME .. "_Load", EVENT_ADD_ON_LOADED)
 end
 
@@ -685,5 +799,6 @@ function iasync_scan()
     ScanCharacterBags()
     ResolveBuildNames()
     ScanAchievements()
+    ScanStickerbook()
 end
 

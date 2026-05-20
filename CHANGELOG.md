@@ -2,6 +2,34 @@
 
 All notable changes to iasync will be documented here.
 
+## [1.3.0] — 2026-05-20
+
+### Changed
+
+**Stickerbook piece names**
+- `ScanStickerbook` now captures each piece's display name via `GetItemSetCollectionPieceItemLink` + `GetItemLinkName` (e.g. `"Mara's Balm Greaves"`)
+- `filterName` field removed from pieces — `GetEquipmentFilterTypeForItemSetCollectionSlot` returns armor/weapon sub-type integers that are not reliable for display; piece names are used instead
+- Each piece entry now: `{ filterType, collected, name }`
+
+---
+
+## [1.2.0] — 2026-05-20
+
+### Added
+
+**Armor weight and weapon type per slot**
+- `CaptureSlot` now calls `GetItemLinkArmorType` and `GetItemLinkWeaponType` on the item link and resolves each to a display string via inline lookup tables (`ARMOR_TYPE_NAMES`, `WEAPON_TYPE_NAMES`)
+- `armorType` field: `"Light"`, `"Medium"`, or `"Heavy"` — `nil` for non-armor items
+- `weaponType` field: `"Sword"`, `"Axe"`, `"Hammer"`, `"Dagger"`, `"Two-Handed Sword"`, `"Two-Handed Axe"`, `"Two-Handed Hammer"`, `"Inferno Staff"`, `"Ice Staff"`, `"Lightning Staff"`, `"Restoration Staff"`, `"Bow"`, or `"Shield"` — `nil` for non-weapon items
+- Uses per-element destruction staff constants (`WEAPONTYPE_FIRE_STAFF`, `WEAPONTYPE_FROST_STAFF`, `WEAPONTYPE_LIGHTNING_STAFF`) with sequential fallbacks (8–13) covering Restoration Staff (11), Bow (12), and Shield (13)
+
+**Stickerbook (item set collection)**
+- `ScanStickerbook()` iterates all item set collection categories via `ITEM_SET_COLLECTIONS_DATA_MANAGER`
+- Per-set capture: name, category, subcategory, `numCollected`, `numTotal`, and per-piece collected status + filter type
+- Stored in `iasync_data.stickerbook.sets` keyed by set ID
+- Called from `OnPlayerActivated` (7 s delay) and from `iasync_scan()`
+- `iasync_data.stickerbook` initialised in `OnAddonLoaded`
+
 ## [1.1.0] — 2026-05-19
 
 ### Added

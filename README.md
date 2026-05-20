@@ -1,4 +1,6 @@
-# iasync — Inventory Armory Sync
+<div align="center">
+  <img src="header.svg" alt="iasync" width="860"/>
+</div>
 
 An Elder Scrolls Online addon that exports character inventory, bank, house chest, and build data to `SavedVariables` so the [ESO Armory](https://github.com/spanthetree/eso-armory) web app can read it without requiring any external upload.
 
@@ -19,7 +21,7 @@ If you want a searchable in-game item list, use Inventory Insight. If you want t
 ## What it captures
 
 **On every character activation — login, /reloadui, or zone change (per character)**
-- Equipped gear (`BAG_WORN`) and backpack (`BAG_BACKPACK`) — item link, name, quantity, trait type (integer) and resolved trait name, enchant display name, set name and set ID, quality, filter type
+- Equipped gear (`BAG_WORN`) and backpack (`BAG_BACKPACK`) — item link, name, quantity, trait type (integer) and resolved trait name, enchant display name, set name and set ID, quality, filter type, armor weight (`armorType`), weapon type (`weaponType`)
 - Skill bars (primary and backup) — ability IDs for slots 3–7 (skills) and slot 8 (ultimate), with crafted/scribing ability resolved to base ID via `GetAbilityIdForCraftedAbilityId`
 - Champion Point stars — total earned points and the 12 slotted star IDs (`HOTBAR_CATEGORY_CHAMPION`, slots 1–12)
 - Attribute point allocations (Health / Magicka / Stamina)
@@ -42,6 +44,12 @@ If you want a searchable in-game item list, use Inventory Insight. If you want t
 **On guild bank open**
 - Contents of BAG_GUILDBANK, stored under the guild's name
 - Note: `guildBanks` data is captured in SavedVariables but is not currently read by the ESO Armory `data_processor.py` and will not appear in the web app.
+
+**Stickerbook** (7 s after zone transition)
+- Item set collection state via `ITEM_SET_COLLECTIONS_DATA_MANAGER`
+- Per set: name, category, subcategory, collected piece count, and total piece count
+- Per piece: display name (e.g. `"Mara's Balm Greaves"` via `GetItemSetCollectionPieceItemLink` + `GetItemLinkName`), collected status, and equipment filter type
+- Stored in `iasync_data.stickerbook.sets` keyed by set ID
 
 **Achievements** (5 s after zone transition, and on real-time award)
 - Full achievement scan across all categories and subcategories
@@ -80,7 +88,10 @@ iasync_data = {
       bags = { [bagId] = { [slot] = { link, name, qty, traitType, traitName,
                                       enchantName,        -- display string; enchant ID is not captured
                                       setId, setName,
-                                      quality, filterType } } },
+                                      quality, filterType,
+                                      armorType,          -- "Light"/"Medium"/"Heavy"; nil for non-armor
+                                      weaponType,         -- e.g. "Sword", "Inferno Staff"; nil for non-weapons
+                                    } } },
       spaceUsed, spaceMax,
       gold, ap, tv, wv,
       build_bars = { primary = { [slot] = abilityId }, backup = { ... } },
@@ -128,6 +139,16 @@ iasync_data = {
       }
     },
     earnedPts, totalPts, lastUpdate,
+  },
+  stickerbook = {
+    sets = {
+      [setId] = {
+        name, category, subcategory,
+        numCollected, numTotal,
+        pieces = { [i] = { filterType, collected, name } },
+      }
+    },
+    lastUpdate,
   },
   abilityNames = {},   -- legacy; kept for backwards compat, not actively written
   cpNames      = {},   -- legacy; kept for backwards compat, not actively written

@@ -59,6 +59,21 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
 | `GetAchievementRewardCollectible(achievementId)` | Returns `collectibleId`. Resolve to name via `pcall(GetCollectibleName, cId)` — must be pcall'd. |
 | `GetAchievementRewardItem(achievementId)` | Returns `(icon, name, count)` or similar. Call once per achievement. |
 | `GetAchievementRewardPoints(achievementId)` | Returns point value for the reward. |
+| `ITEM_SET_COLLECTIONS_DATA_MANAGER` | Global ZOS singleton for stickerbook data. Check existence before use — absent on older API versions. |
+| `ITEM_SET_COLLECTIONS_DATA_MANAGER:TopLevelItemSetCollectionCategoryIterator()` | Iterates top-level stickerbook categories (e.g. "Dungeons", "Cyrodiil"). Each item is a category object. |
+| `catData:GetName()` | Category/subcategory display name. Must be `pcall`'d. |
+| `catData:HasSubcategories()` | Returns true if the category has subcategories. Must be `pcall`'d. |
+| `catData:SubcategoryIterator()` | Iterates subcategory objects. |
+| `catData:CollectionIterator()` | Iterates collection (set) objects within a leaf category. |
+| `collData:GetId()` | Returns setId for the collection. Must be `pcall`'d. |
+| `GetNumItemSetCollectionPieces(setId)` | Total piece count for a set. |
+| `GetNumItemSetCollectionSlotsUnlocked(setId)` | How many pieces the account has collected. |
+| `GetItemSetCollectionPieceInfo(setId, index)` | `(pieceId, slot)` — 1-based index. `slot` is an id64 userdata; pass directly to other API calls, never convert to integer. |
+| `IsItemSetCollectionSlotUnlocked(setId, slot)` | True if the account has collected this piece slot. |
+| `GetItemSetName(setId)` | Display name of the set (e.g. "Mara's Balm"). |
+| `GetItemSetCollectionPieceItemLink(pieceId, linkStyle, traitType)` | Returns an item link string. Use `LINK_STYLE_DEFAULT or 1` and `ITEM_TRAIT_TYPE_NONE or 0`. Must be `pcall`'d. |
+| `GetEquipmentFilterTypeForItemSetCollectionSlot(slot)` | Returns an armor/weapon type integer — **NOT** an `ITEM_FILTER_TYPE_*` value despite the name. Unreliable for display; use piece names from `GetItemLinkName` instead. |
+| `GetItemLinkName(link)` | Extracts display name from an item link (e.g. "Abyssal Brace Helm"). Must be `pcall`'d. |
 
 ## Data structure invariants
 
@@ -66,16 +81,41 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
 - **Bag IDs are integers, slot IDs are integers** — but they are stored as Lua table keys, which means they become integer-keyed tables. The Python side receives them as dicts with string keys (JSON serialisation). `data_processor.py` handles this by calling `int(bag_id_raw)` and iterating with string keys from the JSON.
 - **`enchantId` is always 0.** `CaptureSlot` captures the enchant display name via `GetItemLinkEnchantInfo` but never populates the `enchantId` field. The Python side derives a numeric enchant ID from the item link decoder instead.
 - **`abilityNames` / `cpNames` live under each character entry**, not at the top level. The top-level `iasync_data.abilityNames` and `iasync_data.cpNames` are kept for backwards compatibility only and are no longer written to.
+- **`iasync_data.stickerbook` is account-wide** (not per-character). Schema:
+  ```
+  iasync_data.stickerbook = {
+      lastUpdate = <unix timestamp>,
+      sets = {
+          [setId] = {
+              name         = "Mara's Balm",
+              category     = "Cyrodiil",          -- top-level category name
+              subcategory  = "Cyrodiil Rewards",  -- "" if same as category
+              numCollected = 7,
+              numTotal     = 12,
+              pieces = {
+                  [i] = {
+                      filterType = <integer>,   -- armor/weapon type; unreliable, prefer name
+                      collected  = true/false,
+                      name       = "Mara's Balm Greaves",  -- from GetItemLinkName
+                  }
+              }
+          }
+      }
+  }
+  ```
+  The `sets` table is keyed by numeric setId but serialises to JSON with string keys. `data_processor.py` reads this via `process_iasync_stickerbook(raw)` and serves it at `GET /api/stickerbook`.
+
 - **`build_mundus` is `nil` when no stone is active**, not an empty table. When stones are active it is a Lua sequential table (e.g. `{ "The Lady" }`), which serialises to JSON as `{"1": "The Lady"}`. `data_processor.py` handles both dict and list forms via `list(build_mundus.values()) if isinstance(..., dict) else list(...)`.
 - **House data is keyed by house collectible ID as a string**, e.g. `"738"`. The same house ID is used across sessions and characters.
 
 ## Event flow
 
 ```
-EVENT_ADD_ON_LOADED       → OnAddonLoaded    (initialise iasync_data structure)
+EVENT_ADD_ON_LOADED       → OnAddonLoaded    (initialise iasync_data structure, init stickerbook table)
 EVENT_PLAYER_ACTIVATED    → OnPlayerActivated  (fires on login, /reloadui, and zone changes)
     └─ zo_callLater 2 s   → ScanCharacterBags + ResolveBuildNames
     └─ zo_callLater 3 s   → ScanHouseChests (no-op if not in a house)
+    └─ zo_callLater 7 s   → ScanStickerbook (account-wide; 7 s gives ITEM_SET_COLLECTIONS_DATA_MANAGER time to populate)
 EVENT_OPEN_BANK           → ScanBankBags
 EVENT_OPEN_GUILD_BANK     → ScanGuildBank
 EVENT_INVENTORY_SINGLE_SLOT_UPDATE → OnInventorySlotUpdate → UpdateSlot
@@ -101,6 +141,14 @@ When you need to skip to the next iteration of an outer loop, extract the loop b
 **`pcall` wrapping.** Every ESO API call that could error (slot reads, hotbar reads) is wrapped in `pcall`. If you add a new API call inside `CaptureSlot`, `ScanBuild`, or `ResolveBuildNames`, wrap it too. Errors in slot scanning should be logged to chat with `d(...)` and skipped, not propagated.
 
 **`zo_callLater` delay for house chests.** Do not remove or shorten the 3-second delay. The container bag API (`GetBagSize`) returns 0 for house bags immediately after `EVENT_PLAYER_ACTIVATED` fires; the delay gives the game time to populate the data.
+
+**`GetEquipmentFilterTypeForItemSetCollectionSlot` is misnamed.** Despite the name, it does NOT return `ITEM_FILTER_TYPE_*` values (which map to "Armor", "Weapons", etc.). It returns armor/weapon sub-type integers that are not useful for user-facing display. Always use the piece name from `GetItemLinkName` instead.
+
+**Stickerbook two-level category hierarchy.** `ITEM_SET_COLLECTIONS_DATA_MANAGER` exposes a two-level hierarchy: TopLevelCategories (e.g. "Dungeons") → Subcategories (e.g. "Elden Hollow") → Sets. When recursing through `SubcategoryIterator`, thread both `topName` (the top-level category) and `subName` (the current sub-level) separately. Do NOT overwrite `topName` during recursion — all sets in a top category must share the same category name for the UI grouping to work correctly.
+
+**Two `/reloadui` cycles needed after adding new scan code.** The first `/reloadui` loads the new Lua file but writes the *old* SavedVariables structure (from the prior session). The second `/reloadui` actually writes the results of the new scan. Verify output after the *second* reloadui.
+
+**`slot` from `GetItemSetCollectionPieceInfo` is id64 userdata.** Never store it as an integer or call `tostring()` on it for use as a key. Pass it directly to `IsItemSetCollectionSlotUnlocked` and `GetEquipmentFilterTypeForItemSetCollectionSlot`.
 
 **Guild bank multi-guild ambiguity.** `ScanGuildBank` stores data under the first guild's name it finds. If a player is in multiple guilds with guild banks, only the open one is scanned but there is currently no API to identify which guild bank is open. This is a known limitation.
 
