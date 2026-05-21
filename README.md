@@ -53,10 +53,10 @@ If you want a searchable in-game item list, use Inventory Insight. If you want t
 
 **Achievements** (5 s after zone transition, and on real-time award)
 - Full achievement scan across all categories and subcategories
-- Per-achievement: name, description, points, icon, completion status, completion date and Unix timestamp, persistence level, criteria progress, and any rewards (title, dye, collectible, item)
+- Per-achievement: name, description, points, icon, completion status, completion date and Unix timestamp, persistence level, line chain IDs, completion attribution, criteria progress, and any rewards (title, dye, collectible, item, tribute card upgrade)
 - Account-wide achievements stored in `iasync_data.achievements.account`; character-specific achievements stored under `chars[charId].achievements`
-- Category and subcategory point summaries (earned/total) pulled directly from the ESO API to match the in-game UI exactly
-- Real-time update via `EVENT_ACHIEVEMENT_AWARDED` for achievements earned mid-session
+- Category and subcategory point summaries (earned/total), achievement counts, and hidden-progress flags pulled directly from the ESO API to match the in-game UI exactly
+- Real-time update via `EVENT_ACHIEVEMENT_AWARDED` and `EVENT_ACHIEVEMENTS_UPDATED` for achievements earned or refreshed mid-session
 
 **Real-time** — any `EVENT_INVENTORY_SINGLE_SLOT_UPDATE` fires `UpdateSlot`, keeping inventory data current without a full re-scan.
 
@@ -105,8 +105,10 @@ iasync_data = {
           name, desc, points, icon, complete, cat, subcat,
           completionDate, completionTimestamp,  -- only when complete
           persistenceLevel,
+          lineBaseId, linePreviousId, lineNextId,
+          completedByCharId, completedByCharName,
           criteria = { [i] = { desc, cur, req } },
-          rewards  = { { type, name, id, ... }, ... },
+          rewards  = { { type, name, id, ... }, ... }, -- includes tribute_card_upgrade entries
         }
       },
       lastUpdate,
@@ -134,8 +136,8 @@ iasync_data = {
     },
     categories = {
       [catIdx] = {
-        name, total, complete, earnedPts, totalPts,
-        subcats = { [subIdx] = { name, total, complete, earnedPts, totalPts } },
+        name, total, complete, earnedPts, totalPts, numAchievements, hidesUnearned,
+        subcats = { [subIdx] = { name, total, complete, earnedPts, totalPts, numAchievements, hidesUnearned } },
       }
     },
     earnedPts, totalPts, lastUpdate,
@@ -170,5 +172,6 @@ This re-runs the character bag scan and ability name resolution for the currentl
 - **House chests need a delay.** Container bag data is not immediately available after a zone transition, so scanning is deferred 3 seconds via `zo_callLater`.
 - **Crafted abilities are resolved to their base ID.** Scribing abilities on skill bars use a crafted ability ID; `GetAbilityIdForCraftedAbilityId` converts them before storage so the web app can look up names and icons consistently.
 - **All ESO API calls are `pcall`-wrapped.** Slot reads, hotbar reads, and buff queries are wrapped in `pcall`. Errors are logged to chat via `d(...)` and skipped rather than propagated, so a single bad slot never aborts a full bag scan.
+- **Achievement attribution is best-effort.** `GetCharIdForCompletedAchievement` / `GetCharacterNameById` are used when ESO can resolve them; if not, the current character is used as a fallback for completion attribution.
 - **API availability guards.** Some ESO globals (`HOTBAR_CATEGORY_PRIMARY`, `BAG_HOUSE_CONTAINER_1`, `GetItemDisplayQuality`) were added or renamed across patches. The addon uses `or`-fallbacks throughout (e.g. `HOTBAR_CATEGORY_PRIMARY or 1`) to stay compatible with older API versions.
 - **Guild bank multi-guild limitation.** `ScanGuildBank` stores data under the first guild found via `GetGuildId`. If a player is in multiple guilds with guild banks there is currently no ESO API to identify which guild bank is open, so only the open bank is captured.

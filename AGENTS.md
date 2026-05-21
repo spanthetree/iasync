@@ -53,6 +53,10 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
 | `IsAchievementAccountWide` | **Does not exist** in this API version (confirmed nil). Use `GetAchievementPersistenceLevel` instead. |
 | `GetAchievementPersistenceLevel(achievementId)` | Returns an integer persistence level. Compare against `ACHIEVEMENT_PERSISTENCE_LEVEL_ACCOUNT` to identify account-wide achievements. Both the function and the constant may be absent on older API versions — guard with existence checks before using for routing. |
 | `GetAchievementTimestamp(achievementId)` | Returns a numeric Unix-style timestamp for when the achievement was completed, or 0/nil if incomplete. More reliable than the date string returned by `GetAchievementInfo` r6 for sorting and comparison. |
+| `GetCategoryInfoFromAchievementId(achievementId)` | Returns `(categoryIndex, subCategoryIndex)` for an achievement. Useful for resolving display names when handling real-time award events. |
+| `GetFirstAchievementInLine(achievementId)` / `GetPreviousAchievementInLine(achievementId)` / `GetNextAchievementInLine(achievementId)` | Line-chain navigation helpers. Use these to preserve base/previous/next IDs for grouped achievements. |
+| `GetCharIdForCompletedAchievement(achievementId)` | Returns the character ID that completed a character-specific achievement when ESO can resolve it. `GetCharacterNameById(id)` can be used to turn that into a display name. |
+| `GetAchievementRewardTributeCardUpgradeInfo(achievementId)` | Returns tribute card upgrade reward data when present. Store it as a reward entry rather than trying to flatten it into item/title/dye/collectible. |
 | `GetAchievementNumRewards()` | **Does NOT take an achievementId.** Returns a global reward count (confirmed: calling with an achId arg still returns the same large global value). Do not use to iterate per-achievement rewards — use this only to check if the rewards system is available. |
 | `GetAchievementRewardTitle(achievementId)` | Returns `(titleId, titleName)` or similar for the title reward. Call once per achievement — does NOT take a reward index. Returns nil/empty if no title reward. |
 | `GetAchievementRewardDye(achievementId)` | Returns `(dyeId, dyeName)`. Call once per achievement. |
@@ -107,6 +111,7 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
 
 - **`build_mundus` is `nil` when no stone is active**, not an empty table. When stones are active it is a Lua sequential table (e.g. `{ "The Lady" }`), which serialises to JSON as `{"1": "The Lady"}`. `data_processor.py` handles both dict and list forms via `list(build_mundus.values()) if isinstance(..., dict) else list(...)`.
 - **House data is keyed by house collectible ID as a string**, e.g. `"738"`. The same house ID is used across sessions and characters.
+- **Achievement entries now keep line-chain and attribution metadata.** Store `lineBaseId`, `linePreviousId`, `lineNextId`, `completedByCharId`, and `completedByCharName` with the existing achievement payload so the web app can group lines and show who earned a completion.
 
 ## Event flow
 
@@ -116,6 +121,7 @@ EVENT_PLAYER_ACTIVATED    → OnPlayerActivated  (fires on login, /reloadui, and
     └─ zo_callLater 2 s   → ScanCharacterBags + ResolveBuildNames
     └─ zo_callLater 3 s   → ScanHouseChests (no-op if not in a house)
     └─ zo_callLater 7 s   → ScanStickerbook (account-wide; 7 s gives ITEM_SET_COLLECTIONS_DATA_MANAGER time to populate)
+EVENT_ACHIEVEMENTS_UPDATED → ScanAchievements (refresh achievement state when ESO rebuilds it mid-session)
 EVENT_OPEN_BANK           → ScanBankBags
 EVENT_OPEN_GUILD_BANK     → ScanGuildBank
 EVENT_INVENTORY_SINGLE_SLOT_UPDATE → OnInventorySlotUpdate → UpdateSlot
@@ -139,6 +145,8 @@ When you need to skip to the next iteration of an outer loop, extract the loop b
 **Craft bag iteration.** Never iterate `BAG_VIRTUAL` with a numeric loop. `GetBagSize(BAG_VIRTUAL)` may return a value but slot IDs are not contiguous integers — use `GetNextVirtualBagSlotId` only.
 
 **`pcall` wrapping.** Every ESO API call that could error (slot reads, hotbar reads) is wrapped in `pcall`. If you add a new API call inside `CaptureSlot`, `ScanBuild`, or `ResolveBuildNames`, wrap it too. Errors in slot scanning should be logged to chat with `d(...)` and skipped, not propagated.
+
+**Achievement API shape.** `ScanAchievements` now uses `GetCategoryInfoFromAchievementId`, `GetFirstAchievementInLine`, `GetPreviousAchievementInLine`, `GetNextAchievementInLine`, `GetCharIdForCompletedAchievement`, and `GetAchievementRewardTributeCardUpgradeInfo`. Keep those calls guarded and treat `completedByCharId` / `completedByCharName` as best-effort metadata, not guaranteed values.
 
 **`zo_callLater` delay for house chests.** Do not remove or shorten the 3-second delay. The container bag API (`GetBagSize`) returns 0 for house bags immediately after `EVENT_PLAYER_ACTIVATED` fires; the delay gives the game time to populate the data.
 

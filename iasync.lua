@@ -131,6 +131,168 @@ local function CaptureSlot(bagId, slot)
     }
 end
 
+local function ResolveAchievementCategoryNames(achId)
+    if not GetCategoryInfoFromAchievementId then return nil, nil end
+
+    local ok, catIdx, subIdx = pcall(GetCategoryInfoFromAchievementId, achId)
+    if not ok or not catIdx or catIdx <= 0 then return nil, nil end
+
+    local catName = nil
+    local ok2, name = pcall(GetAchievementCategoryInfo, catIdx)
+    if ok2 and type(name) == "string" and name ~= "" then
+        catName = name
+    end
+
+    local subName = nil
+    if subIdx and subIdx > 0 then
+        local ok3, sName = pcall(GetAchievementSubCategoryInfo, catIdx, subIdx)
+        if ok3 and type(sName) == "string" and sName ~= "" then
+            subName = sName
+        end
+    end
+
+    return catName, subName
+end
+
+local function CaptureAchievementLineInfo(achId, entry)
+    if not entry then return end
+
+    entry.lineBaseId = achId
+    entry.linePreviousId = 0
+    entry.lineNextId = 0
+
+    if GetFirstAchievementInLine then
+        local ok, baseId = pcall(GetFirstAchievementInLine, achId)
+        if ok and type(baseId) == "number" and baseId > 0 then
+            entry.lineBaseId = baseId
+        end
+    end
+
+    if GetPreviousAchievementInLine then
+        local ok, prevId = pcall(GetPreviousAchievementInLine, achId)
+        if ok and type(prevId) == "number" and prevId > 0 then
+            entry.linePreviousId = prevId
+        end
+    end
+
+    if GetNextAchievementInLine then
+        local ok, nextId = pcall(GetNextAchievementInLine, achId)
+        if ok and type(nextId) == "number" and nextId > 0 then
+            entry.lineNextId = nextId
+        end
+    end
+end
+
+local function CaptureAchievementCompletionInfo(achId, entry)
+    if not entry or not entry.complete then return end
+
+    if GetAchievementTimestamp then
+        local ok, ts = pcall(GetAchievementTimestamp, achId)
+        if ok and ts and ts > 0 then
+            entry.completionTimestamp = ts
+        end
+    end
+
+    if GetCharIdForCompletedAchievement then
+        local ok, completedCharId = pcall(GetCharIdForCompletedAchievement, achId)
+        if ok and completedCharId then
+            local completedCharIdStr = tostring(completedCharId)
+            if completedCharIdStr and completedCharIdStr ~= "" then
+                entry.completedByCharId = completedCharIdStr
+                if GetCharacterNameById then
+                    local ok2, completedCharName = pcall(GetCharacterNameById, completedCharId)
+                    if ok2 and type(completedCharName) == "string" and completedCharName ~= "" then
+                        entry.completedByCharName = completedCharName
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function CaptureAchievementRewards(achId)
+    local rewards = {}
+
+    if GetAchievementRewardTitle then
+        local ok, a, b = pcall(GetAchievementRewardTitle, achId)
+        if ok then
+            local tId   = type(a) == "number" and a or nil
+            local tName = type(b) == "string" and b ~= "" and b
+                       or type(a) == "string" and a ~= "" and a or nil
+            if tName then rewards[#rewards + 1] = { type = "title", name = tName, id = tId } end
+        end
+    end
+
+    if GetAchievementRewardDye then
+        local ok, a, b, c = pcall(GetAchievementRewardDye, achId)
+        if ok then
+            local dId   = type(a) == "number" and a or (type(b) == "number" and b or nil)
+            local dName = (type(c) == "string" and c ~= "") and c
+                       or (type(b) == "string" and b ~= "") and b or nil
+            if dId and dId > 0 then
+                rewards[#rewards + 1] = { type = "dye", id = dId, name = dName }
+            end
+        end
+    end
+
+    if GetAchievementRewardCollectible then
+        local ok, a, b = pcall(GetAchievementRewardCollectible, achId)
+        if ok then
+            local cId = type(a) == "number" and a or (type(b) == "number" and b or nil)
+            if cId and cId > 0 then
+                local ok2, cName = pcall(GetCollectibleName, cId)
+                rewards[#rewards + 1] = {
+                    type = "collectible",
+                    id = cId,
+                    name = (ok2 and type(cName) == "string" and cName ~= "") and cName or nil,
+                }
+            end
+        end
+    end
+
+    if GetAchievementRewardItem then
+        local ok, a, b, c, d = pcall(GetAchievementRewardItem, achId)
+        if ok then
+            local iIcon  = type(a) == "string" and a or (type(b) == "string" and b or nil)
+            local iName  = (type(b) == "string" and b ~= "" and b ~= iIcon) and b
+                        or (type(c) == "string" and c ~= "") and c or nil
+            local iCount = type(d) == "number" and d or (type(c) == "number" and c or nil)
+            if iName and iName ~= "" then
+                rewards[#rewards + 1] = {
+                    type = "item",
+                    name = iName,
+                    qty = iCount,
+                    icon = (iIcon and iIcon ~= "") and iIcon or nil,
+                }
+            end
+        end
+    end
+
+    if GetAchievementRewardTributeCardUpgradeInfo then
+        local ok, a, b, c = pcall(GetAchievementRewardTributeCardUpgradeInfo, achId)
+        if ok then
+            local tributePatronId = nil
+            local tributeCardIndex = nil
+            if type(a) == "number" and a > 0 and type(b) == "number" and b > 0 then
+                tributePatronId = a
+                tributeCardIndex = b
+            elseif type(b) == "number" and b > 0 and type(c) == "number" and c > 0 then
+                tributePatronId = b
+                tributeCardIndex = c
+            end
+            if tributePatronId and tributeCardIndex then
+                rewards[#rewards + 1] = {
+                    type = "tribute_card_upgrade",
+                    patronId = tributePatronId,
+                    cardIndex = tributeCardIndex,
+                }
+            end
+        end
+    end
+
+    return rewards
+end
+
 local function ScanBag(bagId)
     local slots = {}
     for slot = 0, GetBagSize(bagId) - 1 do
@@ -461,11 +623,6 @@ local function CaptureAchievement(achId, catName, subcatName)
     if subcatName then entry.subcat = subcatName end
     if complete and date and date ~= "" then entry.completionDate = date end
 
-    if complete and GetAchievementTimestamp then
-        local ok, ts = pcall(GetAchievementTimestamp, achId)
-        if ok and ts and ts > 0 then entry.completionTimestamp = ts end
-    end
-
     -- Persistence level — stored so Python can distinguish account-wide vs char without
     -- relying on routing logic that depends on ESO constants being present.
     if GetAchievementPersistenceLevel then
@@ -473,67 +630,26 @@ local function CaptureAchievement(achId, catName, subcatName)
         if ok and lvl then entry.persistenceLevel = lvl end
     end
 
-    local numCrit = GetAchievementNumCriteria(achId) or 0
+    CaptureAchievementLineInfo(achId, entry)
+    CaptureAchievementCompletionInfo(achId, entry)
+
+    local numCrit = 0
+    if GetAchievementNumCriteria then
+        local ok, critCount = pcall(GetAchievementNumCriteria, achId)
+        if ok and critCount then numCrit = critCount end
+    end
     if numCrit > 0 then
         local criteria = {}
         for i = 1, numCrit do
-            local critDesc, cur, req = GetAchievementCriterion(achId, i)
-            if critDesc and critDesc ~= "" then
+            local ok, critDesc, cur, req = pcall(GetAchievementCriterion, achId, i)
+            if ok and critDesc and critDesc ~= "" then
                 criteria[i] = { desc = critDesc, cur = cur or 0, req = req or 1 }
             end
         end
         if next(criteria) then entry.criteria = criteria end
     end
 
-    -- Rewards: call each type function once per achievement (no per-index loop;
-    -- GetAchievementNumRewards does not take an achId and returns a global count).
-    local rewards = {}
-    if GetAchievementRewardTitle then
-        local ok, a, b = pcall(GetAchievementRewardTitle, achId)
-        if ok then
-            local tId   = type(a) == "number" and a or nil
-            local tName = type(b) == "string" and b ~= "" and b
-                       or type(a) == "string" and a ~= "" and a or nil
-            if tName then rewards[#rewards + 1] = { type = "title", name = tName, id = tId } end
-        end
-    end
-    if GetAchievementRewardDye then
-        local ok, a, b, c = pcall(GetAchievementRewardDye, achId)
-        if ok then
-            -- Boolean-first return common in ESO: (hasDye, dyeId, dyeName) or (dyeId, dyeName)
-            local dId   = type(a) == "number" and a or (type(b) == "number" and b or nil)
-            local dName = (type(c) == "string" and c ~= "") and c
-                       or (type(b) == "string" and b ~= "") and b or nil
-            if dId and dId > 0 then
-                rewards[#rewards + 1] = { type = "dye", id = dId, name = dName }
-            end
-        end
-    end
-    if GetAchievementRewardCollectible then
-        local ok, a, b = pcall(GetAchievementRewardCollectible, achId)
-        if ok then
-            local cId = type(a) == "number" and a or (type(b) == "number" and b or nil)
-            if cId and cId > 0 then
-                local ok2, cName = pcall(GetCollectibleName, cId)
-                rewards[#rewards + 1] = { type = "collectible", id = cId,
-                                          name = (ok2 and type(cName) == "string" and cName ~= "") and cName or nil }
-            end
-        end
-    end
-    if GetAchievementRewardItem then
-        local ok, a, b, c, d = pcall(GetAchievementRewardItem, achId)
-        if ok then
-            -- Handle (hasItem, icon, name, count) or (icon, name, count)
-            local iIcon  = type(a) == "string" and a or (type(b) == "string" and b or nil)
-            local iName  = (type(b) == "string" and b ~= "" and b ~= iIcon) and b
-                        or (type(c) == "string" and c ~= "") and c or nil
-            local iCount = type(d) == "number" and d or (type(c) == "number" and c or nil)
-            if iName and iName ~= "" then
-                rewards[#rewards + 1] = { type = "item", name = iName, qty = iCount,
-                                          icon = (iIcon and iIcon ~= "") and iIcon or nil }
-            end
-        end
-    end
+    local rewards = CaptureAchievementRewards(achId)
     if #rewards > 0 then entry.rewards = rewards end
 
     return entry
@@ -577,31 +693,35 @@ local function ScanAchievements()
     end
 
     local function scanCategory(catIdx)
-        local ok1, catName, numSubCats, _, apiEarnedPts, apiTotalPts = pcall(GetAchievementCategoryInfo, catIdx)
+        local ok1, catName, numSubCats, numAchs, apiEarnedPts, apiTotalPts, hidesUnearned = pcall(GetAchievementCategoryInfo, catIdx)
         if not ok1 or not catName then return end
         numSubCats = numSubCats or 0
 
         -- earnedPts/totalPts come from the API (match game UI exactly); counts are computed.
         local catSumm = {
-            name      = catName,
-            total     = 0,
-            complete  = 0,
-            earnedPts = apiEarnedPts or 0,
-            totalPts  = apiTotalPts  or 0,
-            subcats   = {},
+            name           = catName,
+            total          = 0,
+            complete       = 0,
+            earnedPts      = apiEarnedPts or 0,
+            totalPts       = apiTotalPts  or 0,
+            numAchievements = numAchs or 0,
+            hidesUnearned  = hidesUnearned and true or false,
+            subcats        = {},
         }
         catSummaries[catIdx] = catSumm
 
         for subIdx = 1, numSubCats do
-            local ok2, subName, subNumAchs, apiSubEarned, apiSubTotal = pcall(GetAchievementSubCategoryInfo, catIdx, subIdx)
+            local ok2, subName, subNumAchs, apiSubEarned, apiSubTotal, subHidesUnearned = pcall(GetAchievementSubCategoryInfo, catIdx, subIdx)
             if ok2 and subName then
                 subNumAchs = subNumAchs or 0
                 local subcatSumm = {
-                    name      = subName,
-                    total     = 0,
-                    complete  = 0,
-                    earnedPts = apiSubEarned or 0,
-                    totalPts  = apiSubTotal  or 0,
+                    name           = subName,
+                    total          = 0,
+                    complete       = 0,
+                    earnedPts      = apiSubEarned or 0,
+                    totalPts       = apiSubTotal  or 0,
+                    numAchievements = subNumAchs or 0,
+                    hidesUnearned  = subHidesUnearned and true or false,
                 }
                 catSumm.subcats[subIdx] = subcatSumm
                 for achIdx = 1, subNumAchs do
@@ -634,19 +754,26 @@ local function ScanAchievements()
         lastUpdate = GetTimeStamp(),
     }
     c.achievements = charAchs
+    for _, entry in pairs(c.achievements) do
+        if entry and entry.complete then
+            entry.completedByCharId = entry.completedByCharId or charId
+            entry.completedByCharName = entry.completedByCharName or GetUnitName("player")
+        end
+    end
     d(string.format("[iasync] Achievements: %d account-wide · %d character-specific · %d/%d pts",
         accountCount, charCount, totalEarned, totalPts))
 end
 
 local function OnAchievementAwarded(_, achId)
-    local ok, name, desc, points, _, _, date = pcall(GetAchievementInfo, achId)
-    if not ok or not name or name == "" then return end
-    local entry = { name = name, desc = desc, points = points or 0, complete = true }
-    if date and date ~= "" then entry.completionDate = date end
-    if GetAchievementTimestamp then
-        local ok2, ts = pcall(GetAchievementTimestamp, achId)
-        if ok2 and ts and ts > 0 then entry.completionTimestamp = ts end
-    end
+    local ok, entry = pcall(CaptureAchievement, achId)
+    if not ok or not entry then return end
+    local name = entry.name
+    local catName, subcatName = ResolveAchievementCategoryNames(achId)
+    if catName then entry.cat = catName end
+    if subcatName then entry.subcat = subcatName end
+    entry.complete = true
+    CaptureAchievementLineInfo(achId, entry)
+    CaptureAchievementCompletionInfo(achId, entry)
     local wide = false
     if GetAchievementPersistenceLevel and ACHIEVEMENT_PERSISTENCE_LEVEL_ACCOUNT then
         local ok2, lvl = pcall(GetAchievementPersistenceLevel, achId)
@@ -656,6 +783,8 @@ local function OnAchievementAwarded(_, achId)
     end
     if wide then
         iasync_data.achievements = iasync_data.achievements or { account = {}, lastUpdate = 0 }
+        if not entry.completedByCharId then entry.completedByCharId = tostring(GetCurrentCharacterId()) end
+        if not entry.completedByCharName then entry.completedByCharName = GetUnitName("player") end
         iasync_data.achievements.account[achId] = entry
         iasync_data.achievements.lastUpdate = GetTimeStamp()
     else
@@ -663,6 +792,8 @@ local function OnAchievementAwarded(_, achId)
         local c = iasync_data.chars[charId]
         if c then
             c.achievements = c.achievements or {}
+            if not entry.completedByCharId then entry.completedByCharId = charId end
+            if not entry.completedByCharName then entry.completedByCharName = GetUnitName("player") end
             c.achievements[achId] = entry
         end
     end
@@ -793,6 +924,9 @@ EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Inv",       EVENT_INVENTORY_SINGL
 EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Bank",      EVENT_OPEN_BANK,                    ScanBankBags)
 EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_GuildBank", EVENT_OPEN_GUILD_BANK,              ScanGuildBank)
 EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Ach",       EVENT_ACHIEVEMENT_AWARDED,          OnAchievementAwarded)
+if EVENT_ACHIEVEMENTS_UPDATED then
+    EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_AchUpd", EVENT_ACHIEVEMENTS_UPDATED, ScanAchievements)
+end
 
 -- Manual trigger for testing: /script iasync_scan()
 function iasync_scan()
@@ -801,4 +935,3 @@ function iasync_scan()
     ScanAchievements()
     ScanStickerbook()
 end
-

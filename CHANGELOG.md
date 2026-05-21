@@ -2,6 +2,15 @@
 
 All notable changes to iasync will be documented here.
 
+## [Unreleased]
+
+## [1.3.1] — 2026-05-21
+
+### Changed
+
+- Achievement capture now preserves line chain IDs, completion attribution, hidden-progress category flags, achievement counts, and tribute card upgrade rewards.
+- `EVENT_ACHIEVEMENTS_UPDATED` now triggers a rescan so achievement data can refresh when ESO rebuilds the achievement state mid-session.
+
 ## [1.3.0] — 2026-05-20
 
 ### Changed
