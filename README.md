@@ -22,7 +22,7 @@ If you want a searchable in-game item list, use Inventory Insight. If you want t
 
 **On every character activation — login, /reloadui, or zone change (per character)**
 - Equipped gear (`BAG_WORN`) and backpack (`BAG_BACKPACK`) — item link, name, quantity, trait type (integer) and resolved trait name, enchant display name, set name and set ID, quality, filter type, armor weight (`armorType`), weapon type (`weaponType`)
-- Skill bars (primary and backup) — ability IDs for slots 3–7 (skills) and slot 8 (ultimate), with crafted/scribing ability resolved to base ID via `GetAbilityIdForCraftedAbilityId`
+- Skill bars (primary, backup, and werewolf if applicable) — ability IDs for slots 3–7 (skills) and slot 8 (ultimate), with crafted/scribing ability resolved to base ID via `GetAbilityIdForCraftedAbilityId`
 - Champion Point stars — total earned points and the 12 slotted star IDs (`HOTBAR_CATEGORY_CHAMPION`, slots 1–12)
 - Attribute point allocations (Health / Magicka / Stamina)
 - Active Mundus Stone(s) — detected via buff scan; supports multiple stones (e.g. Steed of the North set)
@@ -94,7 +94,8 @@ iasync_data = {
                                     } } },
       spaceUsed, spaceMax,
       gold, ap, tv, wv,
-      build_bars = { primary = { [slot] = abilityId }, backup = { ... } },
+      build_bars = { primary = { [slot] = abilityId }, backup = { ... },
+                    werewolf = { ... } },  -- present only for werewolf characters
       build_attributes = { health, magicka, stamina },
       build_mundus = { "Stone Name", ... },   -- nil if none active; Lua sequential table
       build_cp = { earned = N, slots = { [slot] = abilityId } },

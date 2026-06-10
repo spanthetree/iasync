@@ -310,8 +310,9 @@ end
 
 local function ScanBuild(c)
     -- slots 3-7 = skills, slot 8 = ultimate; HOTBAR_CATEGORY_* fall back to 1/2 if absent.
-    local primaryCat = HOTBAR_CATEGORY_PRIMARY or 1
-    local backupCat  = HOTBAR_CATEGORY_BACKUP  or 2
+    local primaryCat   = HOTBAR_CATEGORY_PRIMARY  or 1
+    local backupCat    = HOTBAR_CATEGORY_BACKUP   or 2
+    local werewolfCat  = HOTBAR_CATEGORY_WEREWOLF
     local buildBars  = {}
     for _, cfg in ipairs({ { "primary", primaryCat }, { "backup", backupCat } }) do
         local barName, cat = cfg[1], cfg[2]
@@ -328,6 +329,19 @@ local function ScanBuild(c)
             end
         end
         buildBars[barName] = bar
+    end
+    -- Werewolf bar: only present for characters with the werewolf skill line.
+    if werewolfCat then
+        local wwBar = {}
+        for slot = 3, 8 do
+            local ok, aid = pcall(GetSlotBoundId, slot, werewolfCat)
+            if ok and aid and aid ~= 0 then
+                wwBar[slot] = aid
+            end
+        end
+        if next(wwBar) then
+            buildBars["werewolf"] = wwBar
+        end
     end
     c.build_bars = buildBars
 

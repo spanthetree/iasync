@@ -4,6 +4,12 @@ All notable changes to iasync will be documented here.
 
 ## [Unreleased]
 
+## [1.3.2] — 2026-06-11
+
+### Added
+
+- Werewolf skill bar capture — `ScanBuild` now reads `HOTBAR_CATEGORY_WEREWOLF` (slots 3–8) and stores it as `build_bars.werewolf`; omitted entirely for non-werewolf characters
+
 ## [1.3.1] — 2026-05-21
 
 ### Changed
