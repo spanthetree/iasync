@@ -4,6 +4,14 @@ All notable changes to iasync will be documented here.
 
 ## [Unreleased]
 
+### Added
+
+- MIT license
+
+### Changed
+
+- README rewritten for a public audience
+
 ## [1.3.3] — 2026-11-16
 
 ### Changed

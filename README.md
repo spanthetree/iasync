@@ -2,82 +2,65 @@
   <img src="header.svg" alt="iasync" width="860"/>
 </div>
 
-An Elder Scrolls Online addon that exports character inventory, bank, house chest, and build data to `SavedVariables` so the [ESO Armory](https://github.com/spanthetree/eso-armory) web app can read it without requiring any external upload.
+iasync is an Elder Scrolls Online addon that exports your account's inventory, builds, achievements and set collection to a local `SavedVariables` file. It is the data source for **ESO Armory**, a companion web app that lets you browse every character's gear and builds from a browser.
 
-## How this differs from Inventory Insight (iifa)
+## Why it exists
 
-[Inventory Insight](https://www.esoui.com/downloads/info1545-InventoryInsight.html) and iasync solve different problems.
+ESO does not offer an API for reading character data outside the game. The only supported way to get data out is through an addon's `SavedVariables` file, which the game writes to disk on logout and `/reloadui`.
 
-| | Inventory Insight | iasync |
-|---|---|---|
-| **Where you see the data** | In-game panels and search UI | ESO Armory web app |
-| **Primary use** | Quickly find which character has an item without logging in | Browse gear, builds, and currencies from a browser |
-| **Build data** | No | Yes — skill bars, CP stars, attributes, Mundus Stone |
-| **In-game UI** | Yes | None — invisible in-game |
-| **Scope** | General-purpose inventory manager | Purpose-built exporter for ESO Armory |
+iasync reads the game's APIs and writes a complete, structured snapshot of your account to that file. Nothing is uploaded and nothing leaves your machine; any tool that can read a Lua table can use the output.
 
-If you want a searchable in-game item list, use Inventory Insight. If you want to browse your characters' gear and builds in a web app, use iasync. They can run side-by-side without conflict.
+iasync is read-only. It never changes your inventory, builds or any other game state, and it adds no in-game UI.
 
-## What it captures
+## Features
 
-**On every character activation — login, /reloadui, or zone change (per character)**
-- Equipped gear (`BAG_WORN`) and backpack (`BAG_BACKPACK`) — item link, name, quantity, trait type (integer) and resolved trait name, enchant display name, set name and set ID, quality, filter type, armor weight (`armorType`), weapon type (`weaponType`)
-- Skill bars (primary, backup, and werewolf if applicable) — ability IDs for slots 3–7 (skills) and slot 8 (ultimate), with crafted/scribing ability resolved to base ID via `GetAbilityIdForCraftedAbilityId`
-- Champion Point stars — total earned points and the 12 slotted star IDs (`HOTBAR_CATEGORY_CHAMPION`, slots 1–12)
-- Attribute point allocations (Health / Magicka / Stamina)
-- Active Mundus Stone(s) — detected via buff scan; supports multiple stones (e.g. Steed of the North set)
-- Currencies — Gold, Alliance Points, Tel Var Stones, Writ Vouchers (character location)
-- Character identity — name, race, class, alliance
-- Inventory capacity (used / max backpack slots)
-- Resolved ability names and CP star names for the current character's build, stored per-character so logins never overwrite another character's names
+- **Characters**: equipped gear and backpack, with trait, enchant, set, quality, armor weight and weapon type for every item. Also currencies, backpack capacity, and name, race, class and alliance.
+- **Builds**: front, back and werewolf skill bars (scribed skills resolved to their base ability), slotted Champion Point stars, attribute allocation, and active Mundus Stone(s).
+- **Storage**: personal bank, ESO Plus bank, craft bag, house storage chests and guild bank.
+- **Achievements**: every achievement with criteria progress, rewards, completion date and the character who earned it, split into account-wide and per-character. Includes category point totals that match the in-game summary.
+- **Set collections**: collected pieces for every set in the stickerbook.
 
-**On bank open**
-- Personal bank (`BAG_BANK`)
-- ESO Plus overflow bank (`BAG_SUBSCRIBER_BANK`)
-- Craft bag (`BAG_VIRTUAL`) — uses the virtual bag iterator (`GetNextVirtualBagSlotId`), not numeric slots
-- Bank currencies — Gold, Alliance Points, Tel Var Stones, Writ Vouchers (bank location)
+## Requirements
 
-**On house entry** (3 s after zone transition)
-- Up to 10 house storage chests per house, keyed by house collectible ID
-- Per-chest: slot contents, capacity, 1-based chest number, and last-update timestamp
-
-**On guild bank open**
-- Contents of BAG_GUILDBANK, stored under the guild's name
-- Note: `guildBanks` data is captured in SavedVariables but is not currently read by the ESO Armory `data_processor.py` and will not appear in the web app.
-
-**Stickerbook** (7 s after zone transition)
-- Item set collection state via `ITEM_SET_COLLECTIONS_DATA_MANAGER`
-- Per set: name, category, subcategory, collected piece count, and total piece count
-- Per piece: display name (e.g. `"Mara's Balm Greaves"` via `GetItemSetCollectionPieceItemLink` + `GetItemLinkName`), collected status, and equipment filter type
-- Stored in `iasync_data.stickerbook.sets` keyed by set ID
-
-**Achievements** (5 s after zone transition, and on real-time award)
-- Full achievement scan across all categories and subcategories
-- Per-achievement: name, description, points, icon, completion status, completion date and Unix timestamp, persistence level, line chain IDs, completion attribution, criteria progress, and any rewards (title, dye, collectible, item, tribute card upgrade)
-- Account-wide achievements stored in `iasync_data.achievements.account`; character-specific achievements stored under `chars[charId].achievements`
-- Category and subcategory point summaries (earned/total), achievement counts, and hidden-progress flags pulled directly from the ESO API to match the in-game UI exactly
-- Real-time update via `EVENT_ACHIEVEMENT_AWARDED` and `EVENT_ACHIEVEMENTS_UPDATED` for achievements earned or refreshed mid-session
-
-**Real-time** — any `EVENT_INVENTORY_SINGLE_SLOT_UPDATE` fires `UpdateSlot`, keeping inventory data current without a full re-scan.
+- The Elder Scrolls Online, API version `101051` (Update 51) or later
+- No library dependencies
 
 ## Installation
 
-1. Copy the `iasync` folder into:
-   ```
-   %USERPROFILE%\Documents\Elder Scrolls Online\live\AddOns\
-   ```
-2. Launch ESO and enable **iasync** in the AddOn Manager.
-3. Log into each character you want tracked — the first login triggers the initial scan.
+1. Copy the `iasync` folder into `Documents\Elder Scrolls Online\live\AddOns\`.
+2. Start ESO and enable **iasync** in the AddOns menu.
+3. Log in to each character you want exported. Bank and guild bank contents are captured when you open them, and house chests when you enter a house.
 
-## SavedVariables location
+## Usage
+
+iasync runs automatically. Data is written to:
 
 ```
-%USERPROFILE%\Documents\Elder Scrolls Online\live\SavedVariables\iasync.lua
+Documents\Elder Scrolls Online\live\SavedVariables\iasync.lua
 ```
 
-The ESO Armory server reads this file directly and watches it for changes.
+ESO only writes this file on logout, character switch or `/reloadui`.
 
-## SavedVariables schema
+To rescan the current character without reloading, run this in chat:
+
+```
+/script iasync_scan()
+```
+
+### When data is captured
+
+| Trigger | Data |
+|---|---|
+| Login, `/reloadui`, zone change | Character bags, build, currencies (after 2 s), house chests if in a house (3 s), achievements (5 s), set collections (7 s) |
+| Opening the bank | Bank, ESO Plus bank, craft bag, bank currencies |
+| Opening a guild bank | Guild bank contents |
+| Any inventory change | The changed slot, in real time |
+| Earning an achievement | That achievement, in real time |
+
+## Output format
+
+<details>
+<summary><code>iasync_data</code> schema</summary>
 
 ```
 iasync_data = {
@@ -158,13 +141,15 @@ iasync_data = {
 }
 ```
 
-## Manual rescan
+</details>
 
-Open the in-game chat and run:
-```
-/script iasync_scan()
-```
-This re-runs the character bag scan and ability name resolution for the currently logged-in character.
+Lua tables with integer keys (bag IDs, slot IDs, set IDs) become string keys when converted to JSON.
+
+## Known limitations
+
+- **Guild banks**: ESO does not expose which guild's bank is open, so guild bank data is stored under the first guild found.
+- **Ability names**: names are resolved only for the logged-in character, because `GetAbilityName` cannot resolve another class's abilities.
+- **Achievement attribution**: the character who earned an account-wide achievement is reported only when ESO can resolve it.
 
 ## Design notes
 
@@ -173,6 +158,8 @@ This re-runs the character bag scan and ability name resolution for the currentl
 - **House chests need a delay.** Container bag data is not immediately available after a zone transition, so scanning is deferred 3 seconds via `zo_callLater`.
 - **Crafted abilities are resolved to their base ID.** Scribing abilities on skill bars use a crafted ability ID; `GetAbilityIdForCraftedAbilityId` converts them before storage so the web app can look up names and icons consistently.
 - **All ESO API calls are `pcall`-wrapped.** Slot reads, hotbar reads, and buff queries are wrapped in `pcall`. Errors are logged to chat via `d(...)` and skipped rather than propagated, so a single bad slot never aborts a full bag scan.
-- **Achievement attribution is best-effort.** `GetCharIdForCompletedAchievement` / `GetCharacterNameById` are used when ESO can resolve them; if not, the current character is used as a fallback for completion attribution.
 - **API availability guards.** Some ESO globals (`HOTBAR_CATEGORY_PRIMARY`, `BAG_HOUSE_BANK_ONE`, `GetItemDisplayQuality`) were added or renamed across patches. The addon uses `or`-fallbacks throughout (e.g. `HOTBAR_CATEGORY_PRIMARY or 1`) to stay compatible with older API versions. Targets APIVersion `101051` (Update 51); `ESOUIDocumentation.txt` in [esoui/esoui](https://github.com/esoui/esoui) is the reference for available globals.
-- **Guild bank multi-guild limitation.** `ScanGuildBank` stores data under the first guild found via `GetGuildId`. If a player is in multiple guilds with guild banks there is currently no ESO API to identify which guild bank is open, so only the open bank is captured.
+
+## License
+
+[MIT](LICENSE)
