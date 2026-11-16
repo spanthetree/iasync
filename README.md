@@ -81,6 +81,7 @@ iasync_data = {
       build_bars = { primary = { [slot] = abilityId }, backup = { ... },
                     werewolf = { ... } },  -- present only for werewolf characters
       build_attributes = { health, magicka, stamina },
+      build_pools = { health, magicka, stamina },  -- max resource pools, as on the character sheet
       build_mundus = { "Stone Name", ... },   -- nil if none active; Lua sequential table
       build_cp = { earned = N, slots = { [slot] = abilityId } },
       abilityNames = { [abilityId] = "Name" },
