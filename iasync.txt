@@ -6,8 +6,8 @@
 ## Title: iasync
 ## Description: Exports in-game Armory builds to SavedVariables
 ## Author: spanthetree
-## Version: 1.3.2
-## APIVersion: 101049
+## Version: 1.3.3
+## APIVersion: 101051
 ## SavedVariables: iasync_data
 
 iasync.lua

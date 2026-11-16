@@ -109,7 +109,7 @@ iasync_data = {
           lineBaseId, linePreviousId, lineNextId,
           completedByCharId, completedByCharName,
           criteria = { [i] = { desc, cur, req } },
-          rewards  = { { type, name, id, ... }, ... }, -- includes tribute_card_upgrade entries
+          rewards  = { { type, name, id, ... }, ... }, -- item rewards: { type, name, icon } (no qty); includes tribute_card_upgrade entries
         }
       },
       lastUpdate,
@@ -174,5 +174,5 @@ This re-runs the character bag scan and ability name resolution for the currentl
 - **Crafted abilities are resolved to their base ID.** Scribing abilities on skill bars use a crafted ability ID; `GetAbilityIdForCraftedAbilityId` converts them before storage so the web app can look up names and icons consistently.
 - **All ESO API calls are `pcall`-wrapped.** Slot reads, hotbar reads, and buff queries are wrapped in `pcall`. Errors are logged to chat via `d(...)` and skipped rather than propagated, so a single bad slot never aborts a full bag scan.
 - **Achievement attribution is best-effort.** `GetCharIdForCompletedAchievement` / `GetCharacterNameById` are used when ESO can resolve them; if not, the current character is used as a fallback for completion attribution.
-- **API availability guards.** Some ESO globals (`HOTBAR_CATEGORY_PRIMARY`, `BAG_HOUSE_CONTAINER_1`, `GetItemDisplayQuality`) were added or renamed across patches. The addon uses `or`-fallbacks throughout (e.g. `HOTBAR_CATEGORY_PRIMARY or 1`) to stay compatible with older API versions.
+- **API availability guards.** Some ESO globals (`HOTBAR_CATEGORY_PRIMARY`, `BAG_HOUSE_BANK_ONE`, `GetItemDisplayQuality`) were added or renamed across patches. The addon uses `or`-fallbacks throughout (e.g. `HOTBAR_CATEGORY_PRIMARY or 1`) to stay compatible with older API versions. Targets APIVersion `101051` (Update 51); `ESOUIDocumentation.txt` in [esoui/esoui](https://github.com/esoui/esoui) is the reference for available globals.
 - **Guild bank multi-guild limitation.** `ScanGuildBank` stores data under the first guild found via `GetGuildId`. If a player is in multiple guilds with guild banks there is currently no ESO API to identify which guild bank is open, so only the open bank is captured.

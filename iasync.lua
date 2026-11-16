@@ -37,19 +37,19 @@ local ARMOR_TYPE_NAMES = {
 }
 
 local WEAPON_TYPE_NAMES = {
-    [WEAPONTYPE_SWORD             or 1]  = "Sword",
-    [WEAPONTYPE_AXE               or 2]  = "Axe",
-    [WEAPONTYPE_HAMMER            or 3]  = "Hammer",
-    [WEAPONTYPE_DAGGER            or 4]  = "Dagger",
-    [WEAPONTYPE_TWO_HANDED_SWORD  or 5]  = "Two-Handed Sword",
-    [WEAPONTYPE_TWO_HANDED_AXE    or 6]  = "Two-Handed Axe",
-    [WEAPONTYPE_TWO_HANDED_HAMMER or 7]  = "Two-Handed Hammer",
-    [WEAPONTYPE_FIRE_STAFF        or 8]  = "Inferno Staff",
-    [WEAPONTYPE_FROST_STAFF       or 9]  = "Ice Staff",
-    [WEAPONTYPE_LIGHTNING_STAFF   or 10] = "Lightning Staff",
-    [WEAPONTYPE_RUNESTAFF         or 11] = "Restoration Staff",
-    [WEAPONTYPE_BOW               or 12] = "Bow",
-    [WEAPONTYPE_SHIELD            or 13] = "Shield",
+    [WEAPONTYPE_SWORD]             = "Sword",
+    [WEAPONTYPE_AXE]               = "Axe",
+    [WEAPONTYPE_HAMMER]            = "Hammer",
+    [WEAPONTYPE_DAGGER]            = "Dagger",
+    [WEAPONTYPE_TWO_HANDED_SWORD]  = "Two-Handed Sword",
+    [WEAPONTYPE_TWO_HANDED_AXE]    = "Two-Handed Axe",
+    [WEAPONTYPE_TWO_HANDED_HAMMER] = "Two-Handed Hammer",
+    [WEAPONTYPE_FIRE_STAFF]        = "Inferno Staff",
+    [WEAPONTYPE_FROST_STAFF]       = "Ice Staff",
+    [WEAPONTYPE_LIGHTNING_STAFF]   = "Lightning Staff",
+    [WEAPONTYPE_HEALING_STAFF]     = "Restoration Staff",
+    [WEAPONTYPE_BOW]               = "Bow",
+    [WEAPONTYPE_SHIELD]            = "Shield",
 }
 
 -- ── Bag configuration ────────────────────────────────────────────────────────
@@ -71,8 +71,7 @@ IS_BANK_BAG[BAG_VIRTUAL] = true  -- craft bag slot updates share the bank storag
 -- House container bag IDs start at 7 (chest 1 = bag 7, chest 2 = bag 8, ...).
 -- ESO allows up to 10 containers per house. We probe via GetBagSize to confirm
 -- which IDs are actually present rather than assuming a fixed count.
--- Use BAG_HOUSE_CONTAINER_1 constant if defined; fall back to literal 7.
-local HOUSE_BAG_START = (type(BAG_HOUSE_CONTAINER_1) == "number") and BAG_HOUSE_CONTAINER_1 or 7
+local HOUSE_BAG_START = BAG_HOUSE_BANK_ONE or 7
 local HOUSE_BAG_COUNT = 10
 
 local function IsHouseBag(bagId)
@@ -210,6 +209,12 @@ local function CaptureAchievementCompletionInfo(achId, entry)
     end
 end
 
+local function IsAccountWideAchievement(achId)
+    if not (GetAchievementPersistenceLevel and ACHIEVEMENT_PERSISTENCE_ACCOUNT) then return false end
+    local ok, lvl = pcall(GetAchievementPersistenceLevel, achId)
+    return ok and lvl == ACHIEVEMENT_PERSISTENCE_ACCOUNT
+end
+
 local function CaptureAchievementRewards(achId)
     local rewards = {}
 
@@ -251,20 +256,13 @@ local function CaptureAchievementRewards(achId)
     end
 
     if GetAchievementRewardItem then
-        local ok, a, b, c, d = pcall(GetAchievementRewardItem, achId)
-        if ok then
-            local iIcon  = type(a) == "string" and a or (type(b) == "string" and b or nil)
-            local iName  = (type(b) == "string" and b ~= "" and b ~= iIcon) and b
-                        or (type(c) == "string" and c ~= "") and c or nil
-            local iCount = type(d) == "number" and d or (type(c) == "number" and c or nil)
-            if iName and iName ~= "" then
-                rewards[#rewards + 1] = {
-                    type = "item",
-                    name = iName,
-                    qty = iCount,
-                    icon = (iIcon and iIcon ~= "") and iIcon or nil,
-                }
-            end
+        local ok, hasItem, iName, iIcon = pcall(GetAchievementRewardItem, achId)
+        if ok and hasItem and type(iName) == "string" and iName ~= "" then
+            rewards[#rewards + 1] = {
+                type = "item",
+                name = iName,
+                icon = (type(iIcon) == "string" and iIcon ~= "") and iIcon or nil,
+            }
         end
     end
 
@@ -485,9 +483,7 @@ local function GetHouseKey()
             return tostring(houseId), name
         end
     end
-    -- Fallback: use current zone ID if housing API is unavailable
-    local zoneId = GetCurrentZoneId and GetCurrentZoneId() or 0
-    return tostring(zoneId), "House"
+    return "0", "House"
 end
 
 local function ScanHouseChests()
@@ -690,14 +686,7 @@ local function ScanAchievements()
             if entry.complete then subcatSumm.complete = subcatSumm.complete + 1 end
         end
 
-        local wide = false
-        if GetAchievementPersistenceLevel and ACHIEVEMENT_PERSISTENCE_LEVEL_ACCOUNT then
-            local ok, lvl = pcall(GetAchievementPersistenceLevel, achId)
-            wide = ok and lvl == ACHIEVEMENT_PERSISTENCE_LEVEL_ACCOUNT
-        elseif IsAchievementAccountWide then
-            wide = IsAchievementAccountWide(achId) and true or false
-        end
-        if wide then
+        if IsAccountWideAchievement(achId) then
             if not accountAchs[achId] then accountCount = accountCount + 1 end
             accountAchs[achId] = entry
         else
@@ -778,7 +767,7 @@ local function ScanAchievements()
         accountCount, charCount, totalEarned, totalPts))
 end
 
-local function OnAchievementAwarded(_, achId)
+local function OnAchievementAwarded(_, _, _, achId)
     local ok, entry = pcall(CaptureAchievement, achId)
     if not ok or not entry then return end
     local name = entry.name
@@ -788,14 +777,7 @@ local function OnAchievementAwarded(_, achId)
     entry.complete = true
     CaptureAchievementLineInfo(achId, entry)
     CaptureAchievementCompletionInfo(achId, entry)
-    local wide = false
-    if GetAchievementPersistenceLevel and ACHIEVEMENT_PERSISTENCE_LEVEL_ACCOUNT then
-        local ok2, lvl = pcall(GetAchievementPersistenceLevel, achId)
-        wide = ok2 and lvl == ACHIEVEMENT_PERSISTENCE_LEVEL_ACCOUNT
-    elseif IsAchievementAccountWide then
-        wide = IsAchievementAccountWide(achId) and true or false
-    end
-    if wide then
+    if IsAccountWideAchievement(achId) then
         iasync_data.achievements = iasync_data.achievements or { account = {}, lastUpdate = 0 }
         if not entry.completedByCharId then entry.completedByCharId = tostring(GetCurrentCharacterId()) end
         if not entry.completedByCharName then entry.completedByCharName = GetUnitName("player") end

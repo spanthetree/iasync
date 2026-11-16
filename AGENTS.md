@@ -44,24 +44,24 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
 | `GetCollectibleName(id)` | Resolves house collectible ID to display name |
 | `zo_callLater(fn, ms)` | Deferred execution; used for house chest scan (3 000 ms) |
 | `GetNumAchievementCategories()` | Total number of top-level achievement categories (confirmed: returns 47) |
-| `GetAchievementCategoryInfo(categoryIndex)` | Takes a **1-based index**, not an ID. Returns `(name, numSubCategories, ???, earnedPts, totalPts)`. r4/r5 are confirmed to match the in-game summary UI (e.g. CHARACTER: 3120/5325). r3 purpose unknown. **`GetAchievementCategoryId` does not exist** — confirmed nil at runtime. |
+| `GetAchievementCategoryInfo(categoryIndex)` | Takes a **1-based index**, not an ID. Returns `(name, numSubCategories, numAchievements, earnedPts, totalPts, hidesPoints)`. r4/r5 are confirmed to match the in-game summary UI (e.g. CHARACTER: 3120/5325). **`GetAchievementCategoryId` does not exist** — confirmed nil at runtime. |
 | `GetAchievementSubCategoryInfo(categoryIndex, subCategoryIndex)` | Returns `(name, numAchievements, earnedPts, totalPts)`. r2 is the achievement count to iterate; r3/r4 are API-provided earned/total points for the subcategory. |
 | `GetAchievementId(categoryIndex, subCategoryIndex, achievementIndex)` | **3-param, all indices.** `subCategoryIndex=0` returns `achId=0` (confirmed in-game) — all achievements live in subcategories (subIdx ≥ 1). |
 | `GetAchievementInfo(achievementId)` | `(name, description, points, icon, complete, date)` |
 | `GetAchievementNumCriteria(achievementId)` | Number of criteria for an achievement. **`GetNumAchievementCriteria` does not exist** (confirmed nil). |
 | `GetAchievementCriterion(achievementId, criterionIndex)` | `(description, numCompleted, numRequired)`. **`GetAchievementCriteriaInfo` and `GetAchievementCriterionInfo` do not exist** (confirmed nil). |
 | `IsAchievementAccountWide` | **Does not exist** in this API version (confirmed nil). Use `GetAchievementPersistenceLevel` instead. |
-| `GetAchievementPersistenceLevel(achievementId)` | Returns an integer persistence level. Compare against `ACHIEVEMENT_PERSISTENCE_LEVEL_ACCOUNT` to identify account-wide achievements. Both the function and the constant may be absent on older API versions — guard with existence checks before using for routing. |
+| `GetAchievementPersistenceLevel(achievementId)` | Returns an integer persistence level. Compare against `ACHIEVEMENT_PERSISTENCE_ACCOUNT` (101051 name; `ACHIEVEMENT_PERSISTENCE_LEVEL_ACCOUNT` does not exist) to identify account-wide achievements. Routing goes through `IsAccountWideAchievement(achId)`. |
 | `GetAchievementTimestamp(achievementId)` | Returns a numeric Unix-style timestamp for when the achievement was completed, or 0/nil if incomplete. More reliable than the date string returned by `GetAchievementInfo` r6 for sorting and comparison. |
 | `GetCategoryInfoFromAchievementId(achievementId)` | Returns `(categoryIndex, subCategoryIndex)` for an achievement. Useful for resolving display names when handling real-time award events. |
 | `GetFirstAchievementInLine(achievementId)` / `GetPreviousAchievementInLine(achievementId)` / `GetNextAchievementInLine(achievementId)` | Line-chain navigation helpers. Use these to preserve base/previous/next IDs for grouped achievements. |
 | `GetCharIdForCompletedAchievement(achievementId)` | Returns the character ID that completed a character-specific achievement when ESO can resolve it. `GetCharacterNameById(id)` can be used to turn that into a display name. |
 | `GetAchievementRewardTributeCardUpgradeInfo(achievementId)` | Returns tribute card upgrade reward data when present. Store it as a reward entry rather than trying to flatten it into item/title/dye/collectible. |
 | `GetAchievementNumRewards()` | **Does NOT take an achievementId.** Returns a global reward count (confirmed: calling with an achId arg still returns the same large global value). Do not use to iterate per-achievement rewards — use this only to check if the rewards system is available. |
-| `GetAchievementRewardTitle(achievementId)` | Returns `(titleId, titleName)` or similar for the title reward. Call once per achievement — does NOT take a reward index. Returns nil/empty if no title reward. |
-| `GetAchievementRewardDye(achievementId)` | Returns `(dyeId, dyeName)`. Call once per achievement. |
-| `GetAchievementRewardCollectible(achievementId)` | Returns `collectibleId`. Resolve to name via `pcall(GetCollectibleName, cId)` — must be pcall'd. |
-| `GetAchievementRewardItem(achievementId)` | Returns `(icon, name, count)` or similar. Call once per achievement. |
+| `GetAchievementRewardTitle(achievementId)` | Returns `(hasReward, titleName)`. Call once per achievement — does NOT take a reward index. |
+| `GetAchievementRewardDye(achievementId)` | Returns `(hasReward, dyeId)`. Call once per achievement. |
+| `GetAchievementRewardCollectible(achievementId)` | Returns `(hasReward, collectibleId)`. Resolve to name via `pcall(GetCollectibleName, cId)` — must be pcall'd. |
+| `GetAchievementRewardItem(achievementId)` | Returns `(hasReward, itemName, iconTexture, displayQuality)`. No count. Call once per achievement. |
 | `GetAchievementRewardPoints(achievementId)` | Returns point value for the reward. |
 | `ITEM_SET_COLLECTIONS_DATA_MANAGER` | Global ZOS singleton for stickerbook data. Check existence before use — absent on older API versions. |
 | `ITEM_SET_COLLECTIONS_DATA_MANAGER:TopLevelItemSetCollectionCategoryIterator()` | Iterates top-level stickerbook categories (e.g. "Dungeons", "Cyrodiil"). Each item is a category object. |
@@ -122,6 +122,7 @@ EVENT_PLAYER_ACTIVATED    → OnPlayerActivated  (fires on login, /reloadui, and
     └─ zo_callLater 3 s   → ScanHouseChests (no-op if not in a house)
     └─ zo_callLater 7 s   → ScanStickerbook (account-wide; 7 s gives ITEM_SET_COLLECTIONS_DATA_MANAGER time to populate)
 EVENT_ACHIEVEMENTS_UPDATED → ScanAchievements (refresh achievement state when ESO rebuilds it mid-session)
+EVENT_ACHIEVEMENT_AWARDED → OnAchievementAwarded (args: eventCode, name, points, achievementId, link)
 EVENT_OPEN_BANK           → ScanBankBags
 EVENT_OPEN_GUILD_BANK     → ScanGuildBank
 EVENT_INVENTORY_SINGLE_SLOT_UPDATE → OnInventorySlotUpdate → UpdateSlot
@@ -138,7 +139,7 @@ When you need to skip to the next iteration of an outer loop, extract the loop b
 
 ## Things to watch out for
 
-**API availability.** Some ESO globals (`HOTBAR_CATEGORY_PRIMARY`, `BAG_HOUSE_CONTAINER_1`, `GetDisplayQuality`) were added or renamed across patches. The addon uses `or`-fallbacks throughout (`HOTBAR_CATEGORY_PRIMARY or 1`). When adding new API calls, check whether they exist on the target APIVersion (currently `101049`) and add a guard if needed.
+**API availability.** Some ESO globals (`HOTBAR_CATEGORY_PRIMARY`, `BAG_HOUSE_BANK_ONE`, `GetItemDisplayQuality`) were added or renamed across patches. The addon uses `or`-fallbacks throughout (`HOTBAR_CATEGORY_PRIMARY or 1`). When adding new API calls, check whether they exist on the target APIVersion (currently `101051`; authoritative list: `ESOUIDocumentation.txt` in github.com/esoui/esoui) and add a guard if needed.
 
 **`GetAbilityName` returns `""` for out-of-session abilities.** If a Templar logs in and their bars contain Sorcerer skills from a previous character, those ability IDs return empty strings. This is expected — names are resolved only for the current character's loaded skill data. Do not attempt to call `GetAbilityName` for IDs stored from other characters.
 
@@ -170,14 +171,16 @@ If you add a new field to any stored table:
 
 ## Git and release policy
 
-**Never perform any git actions** (commit, add, push, tag, reset, etc.). Do not stage files or create commits under any circumstances.
+Git actions (branch, add, commit, push, pull) are allowed. **Open a pull request only when the user says to.** Never force-push, rewrite published history, or tag by hand.
 
-When the user requests a **pre-commit** / release preparation:
-1. Update `README.md` with any relevant changes
-2. Update `CHANGELOG.md` (create it if absent) with a new entry for the version
-3. Bump the version number in `iasync.txt` (the `## Version:` line)
+- Make every change on a new branch. Pull `master` first, then branch off it (`git checkout master && git pull && git checkout -b <branch>`). Never commit straight to `master`.
+- One pull request per issue. Land each phase of the work as its own commit, and put the whole issue in a single PR.
+- Before you open the PR, the branch's last commit must:
+  - **Update `CHANGELOG.md`.** Add a dated `## [x.y.z] — YYYY-MM-DD` section under `[Unreleased]`, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+  - **Update `README.md`** wherever features, the SavedVariables schema, or setup changed.
+  - **Bump the version** in `iasync.txt` (the `## Version:` line) under [Semantic Versioning](https://semver.org/spec/v2.0.0.html). A fix is a patch, a feature a minor. Not sure? Ask in the PR.
 
-Stop there. Do not run any git commands after completing those three steps.
+When the user asks only for a **pre-commit** / release preparation, do those three steps and stop.
 
 ## Testing
 
