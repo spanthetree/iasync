@@ -40,6 +40,7 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
 | `GetCurrencyAmount(type, location)` | Currency value; location = `CHARACTER` or `BANK` |
 | `GetCurrentCharacterId()` | Returns a 64-bit integer; always `tostring()` before using as a table key |
 | `GetUnitName/Race/Class/Alliance("player")` | Character identity |
+| `GetUnitGender("player")` | `GENDER_FEMALE` / `GENDER_MALE` / `GENDER_NEUTER`; stored as `"female"` or `"male"` |
 | `GetCurrentZoneHouseId()` | Non-zero when inside a house; used to key house data |
 | `GetCollectibleName(id)` | Resolves house collectible ID to display name |
 | `zo_callLater(fn, ms)` | Deferred execution; used for house chest scan (3 000 ms) |

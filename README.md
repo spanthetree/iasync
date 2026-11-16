@@ -14,7 +14,7 @@ iasync is read-only. It never changes your inventory, builds or any other game s
 
 ## Features
 
-- **Characters**: equipped gear and backpack, with trait, enchant, set, quality, armor weight and weapon type for every item. Also currencies, backpack capacity, and name, race, class and alliance.
+- **Characters**: equipped gear and backpack, with trait, enchant, set, quality, armor weight and weapon type for every item. Also currencies, backpack capacity, and name, race, class, alliance and gender.
 - **Builds**: front, back and werewolf skill bars (scribed skills resolved to their base ability), slotted Champion Point stars, attribute allocation, and active Mundus Stone(s).
 - **Storage**: personal bank, ESO Plus bank, craft bag, house storage chests and guild bank.
 - **Achievements**: every achievement with criteria progress, rewards, completion date and the character who earned it, split into account-wide and per-character. Includes category point totals that match the in-game summary.
@@ -68,6 +68,7 @@ iasync_data = {
   chars = {
     ["<charId>"] = {
       name, race, class, alliance,
+      gender,               -- "female" or "male" (from GetUnitGender)
       bags = { [bagId] = { [slot] = { link, name, qty, traitType, traitName,
                                       enchantName,        -- display string; enchant ID is not captured
                                       setId, setName,
