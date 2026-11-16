@@ -4,6 +4,20 @@ All notable changes to iasync will be documented here.
 
 ## [Unreleased]
 
+## [1.3.3] — 2026-11-16
+
+### Changed
+
+- `APIVersion` bumped from `101049` to `101051` (Update 51); all globals verified against the 101051 `ESOUIDocumentation.txt`
+
+### Fixed
+
+- Account-wide achievements were never detected — routing checked the nonexistent `ACHIEVEMENT_PERSISTENCE_LEVEL_ACCOUNT`; now uses `ACHIEVEMENT_PERSISTENCE_ACCOUNT` via `IsAccountWideAchievement`. Existing data will move from `chars[id].achievements` to `achievements.account` on next scan
+- Real-time achievement awards were never recorded — `EVENT_ACHIEVEMENT_AWARDED` handler read the name arg as the ID; now reads `(eventCode, name, points, id)`
+- Daggers labelled "Restoration Staff" and resto staffs unlabelled — `WEAPONTYPE_RUNESTAFF` no longer exists and its fallback (11) is the dagger ID; now uses `WEAPONTYPE_HEALING_STAFF` and drops the incorrect numeric fallbacks
+- Item rewards stored the icon path as `name` and display quality as `qty` — now parsed per the documented `(hasReward, itemName, icon, quality)` shape; `qty` removed
+- House bag start constant renamed `BAG_HOUSE_CONTAINER_1` → `BAG_HOUSE_BANK_ONE`; removed dead fallbacks to nonexistent `GetCurrentZoneId` and `IsAchievementAccountWide`
+
 ## [1.3.2] — 2026-06-11
 
 ### Added
