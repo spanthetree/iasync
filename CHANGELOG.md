@@ -4,6 +4,12 @@ All notable changes to iasync will be documented here.
 
 ## [Unreleased]
 
+## [1.4.0] — 2026-11-17
+
+### Added
+
+- Character gender (`chars[id].gender`, `"female"` or `"male"`) from `GetUnitGender`, so ESO Armory can show the matching body silhouette. Written on the next login or `/reloadui` per character
+
 ## [1.3.4] — 2026-11-16
 
 ### Added
