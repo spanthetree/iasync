@@ -171,14 +171,16 @@ If you add a new field to any stored table:
 
 ## Git and release policy
 
-**Never perform any git actions** (commit, add, push, tag, reset, etc.). Do not stage files or create commits under any circumstances.
+Git actions (branch, add, commit, push, pull) are allowed. **Open a pull request only when the user says to.** Never force-push, rewrite published history, or tag by hand.
 
-When the user requests a **pre-commit** / release preparation:
-1. Update `README.md` with any relevant changes
-2. Update `CHANGELOG.md` (create it if absent) with a new entry for the version
-3. Bump the version number in `iasync.txt` (the `## Version:` line)
+- Make every change on a new branch. Pull `master` first, then branch off it (`git checkout master && git pull && git checkout -b <branch>`). Never commit straight to `master`.
+- One pull request per issue. Land each phase of the work as its own commit, and put the whole issue in a single PR.
+- Before you open the PR, the branch's last commit must:
+  - **Update `CHANGELOG.md`.** Add a dated `## [x.y.z] — YYYY-MM-DD` section under `[Unreleased]`, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+  - **Update `README.md`** wherever features, the SavedVariables schema, or setup changed.
+  - **Bump the version** in `iasync.txt` (the `## Version:` line) under [Semantic Versioning](https://semver.org/spec/v2.0.0.html). A fix is a patch, a feature a minor. Not sure? Ask in the PR.
 
-Stop there. Do not run any git commands after completing those three steps.
+When the user asks only for a **pre-commit** / release preparation, do those three steps and stop.
 
 ## Testing
 
