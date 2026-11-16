@@ -406,6 +406,8 @@ local function ScanCharacterBags()
     c.race     = (GetUnitRace("player"))
     c.class    = (GetUnitClass("player"))
     c.alliance = GetAllianceName(GetUnitAlliance("player"))
+    -- "female" or "male" (GENDER_NEUTER and unknown values fall back to "male").
+    c.gender   = (GetUnitGender("player") == (GENDER_FEMALE or 1)) and "female" or "male"
     c.bags = {}
 
     for _, bagId in ipairs(CHAR_BAGS) do
