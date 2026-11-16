@@ -4,6 +4,8 @@ All notable changes to iasync will be documented here.
 
 ## [Unreleased]
 
+## [1.3.4] — 2026-11-16
+
 ### Added
 
 - MIT license
@@ -11,6 +13,7 @@ All notable changes to iasync will be documented here.
 ### Changed
 
 - README rewritten for a public audience
+- `.gitignore` excludes local `.claude/` settings
 
 ## [1.3.3] — 2026-11-16
 
