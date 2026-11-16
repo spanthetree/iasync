@@ -2,7 +2,7 @@
   <img src="header.svg" alt="iasync" width="860"/>
 </div>
 
-iasync is an Elder Scrolls Online addon that exports your account's inventory, builds, achievements and set collection to a local `SavedVariables` file. It is the data source for **ESO Armory**, a companion web app that lets you browse every character's gear and builds from a browser.
+iasync is an Elder Scrolls Online addon that exports your account's inventory, builds, achievements and set collection to a local `SavedVariables` file. It is the data source for [ESO Armory](https://github.com/spanthetree/eso-armory), a companion web app that lets you browse every character's gear and builds from a browser.
 
 ## Why it exists
 
