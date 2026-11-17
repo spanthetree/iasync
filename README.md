@@ -141,7 +141,7 @@ iasync_data = {
     lastUpdate,
   },
   uiColors = {  -- "rrggbb" from GetInterfaceColor; nil if a constant is missing
-    textNormal, textSelected, textHighlight, textDisabled, textDefault, textContrast, textSucceeded,
+    textNormal, textSelected, textHighlight, textDisabled, textDefault, textContrast, textSucceeded, textSecondSelected, textSecondNormal,
     xpStart, xpEnd,
   },
   abilityNames = {},   -- legacy; kept for backwards compat, not actively written

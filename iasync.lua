@@ -941,6 +941,8 @@ local function ScanUiColors()
         textDefault   = hex(TEXT, INTERFACE_TEXT_COLOR_DEFAULT_TEXT),
         textContrast  = hex(TEXT, INTERFACE_TEXT_COLOR_CONTRAST),
         textSucceeded = hex(TEXT, INTERFACE_TEXT_COLOR_SUCCEEDED),
+        textSecondSelected = hex(TEXT, INTERFACE_TEXT_COLOR_SECOND_SELECTED),
+        textSecondNormal   = hex(TEXT, INTERFACE_TEXT_COLOR_SECOND_NORMAL),
         xpStart       = hex(PROG, PROGRESSION_COLOR_XP_START),
         xpEnd         = hex(PROG, PROGRESSION_COLOR_XP_END),
     }
