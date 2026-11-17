@@ -140,6 +140,10 @@ iasync_data = {
     categoryIcons = { [categoryName] = iconPath },  -- top-level category tree icons
     lastUpdate,
   },
+  uiColors = {  -- "rrggbb" from GetInterfaceColor; nil if a constant is missing
+    textNormal, textSelected, textHighlight, textDisabled, textDefault, textContrast, textSucceeded,
+    xpStart, xpEnd,
+  },
   abilityNames = {},   -- legacy; kept for backwards compat, not actively written
   cpNames      = {},   -- legacy; kept for backwards compat, not actively written
 }

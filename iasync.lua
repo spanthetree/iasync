@@ -919,6 +919,33 @@ local function ScanStickerbook()
     d(string.format("[iasync] Stickerbook: %d sets · %d fully collected", totalSets, collectedSets))
 end
 
+-- ── UI colours ──────────────────────────────────────────────────────────────
+-- Interface colours live in the client, not in the UI source; ESO Armory uses
+-- them to draw its Achievements and Collections tabs in the in-game colours.
+
+local function ScanUiColors()
+    if not GetInterfaceColor then return end
+    local function hex(colorType, field)
+        if colorType == nil or field == nil then return nil end
+        local ok, r, g, b = pcall(GetInterfaceColor, colorType, field)
+        if not ok or type(r) ~= "number" then return nil end
+        return string.format("%02x%02x%02x", zo_round(r * 255), zo_round(g * 255), zo_round(b * 255))
+    end
+    local TEXT = INTERFACE_COLOR_TYPE_TEXT_COLORS
+    local PROG = INTERFACE_COLOR_TYPE_PROGRESSION
+    iasync_data.uiColors = {
+        textNormal    = hex(TEXT, INTERFACE_TEXT_COLOR_NORMAL),
+        textSelected  = hex(TEXT, INTERFACE_TEXT_COLOR_SELECTED),
+        textHighlight = hex(TEXT, INTERFACE_TEXT_COLOR_HIGHLIGHT),
+        textDisabled  = hex(TEXT, INTERFACE_TEXT_COLOR_DISABLED),
+        textDefault   = hex(TEXT, INTERFACE_TEXT_COLOR_DEFAULT_TEXT),
+        textContrast  = hex(TEXT, INTERFACE_TEXT_COLOR_CONTRAST),
+        textSucceeded = hex(TEXT, INTERFACE_TEXT_COLOR_SUCCEEDED),
+        xpStart       = hex(PROG, PROGRESSION_COLOR_XP_START),
+        xpEnd         = hex(PROG, PROGRESSION_COLOR_XP_END),
+    }
+end
+
 -- ── Event handlers ───────────────────────────────────────────────────────────
 
 local function OnPlayerActivated()
@@ -929,6 +956,7 @@ local function OnPlayerActivated()
     zo_callLater(ScanHouseChests, 3000)
     zo_callLater(ScanAchievements, 5000)
     zo_callLater(ScanStickerbook, 7000)
+    ScanUiColors()
 end
 
 local function OnInventorySlotUpdate(_, bagId, slotIndex)
@@ -970,4 +998,5 @@ function iasync_scan()
     ResolveBuildNames()
     ScanAchievements()
     ScanStickerbook()
+    ScanUiColors()
 end

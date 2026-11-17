@@ -10,6 +10,7 @@ All notable changes to iasync will be documented here.
 
 - Set reconstruction cost (`stickerbook.sets[id].reconCurrency`, `reconCost`), the transmute cost shown in the in-game Sets header
 - Set collection piece id and display quality (`pieces[i].id`, `pieces[i].quality`)
+- In-game interface colours (`uiColors`: text normal/selected/highlight/disabled/default/contrast/succeeded and the XP bar gradient) from `GetInterfaceColor`, as `rrggbb` hex
 
 ## [1.6.0] — 2026-11-17
 
