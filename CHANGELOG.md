@@ -4,12 +4,17 @@ All notable changes to iasync will be documented here.
 
 ## [Unreleased]
 
+## [1.5.0] — 2026-11-17
+
+### Added
+
+- Maximum Health, Magicka and Stamina (`chars[id].build_pools`) from `GetPlayerStat`, matching the in-game character sheet, including buffs active at scan time such as food
+
 ## [1.4.0] — 2026-11-17
 
 ### Added
 
 - Character gender (`chars[id].gender`, `"female"` or `"male"`) from `GetUnitGender`, so ESO Armory can show the matching body silhouette. Written on the next login or `/reloadui` per character
-- Maximum Health, Magicka and Stamina (`chars[id].build_pools`) from `GetPlayerStat`, matching the in-game character sheet, including buffs active at scan time such as food
 
 ## [1.3.4] — 2026-11-16
 
