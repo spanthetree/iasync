@@ -355,6 +355,19 @@ local function ScanBuild(c)
     end
     c.build_attributes = attrs
 
+    -- Maximum Health/Magicka/Stamina as the in-game character sheet shows them
+    -- (attributes, gear, CP and any buffs active at scan time, e.g. food).
+    local pools = {}
+    for _, pair in ipairs({
+        { "health",  STAT_HEALTH_MAX },
+        { "magicka", STAT_MAGICKA_MAX },
+        { "stamina", STAT_STAMINA_MAX },
+    }) do
+        local ok, value = pcall(GetPlayerStat, pair[2], STAT_BONUS_OPTION_APPLY_BONUS)
+        pools[pair[1]] = (ok and value) or 0
+    end
+    c.build_pools = pools
+
     -- Mundus stone (boon): permanent buff whose icon path contains "mundus".
     -- ESO prefixes the buff name with "Boon: "; strip it for clean storage.
     -- A player with the Steed of the North set may have two active stones.

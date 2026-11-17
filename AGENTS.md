@@ -36,6 +36,7 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
 | `GetAbilityName(id)` | Ability display name; may return `""` if not loaded this session |
 | `GetChampionSkillName(id)` | CP star display name |
 | `GetAttributeSpentPoints(attrConst)` | Attribute points allocated by the player |
+| `GetPlayerStat(STAT_*_MAX, STAT_BONUS_OPTION_APPLY_BONUS)` | Max Health/Magicka/Stamina as on the character sheet (includes buffs active at scan time); stored as `build_pools` |
 | `GetNumBuffs("player")` / `GetUnitBuffInfo(...)` | Used to detect active Mundus stone(s) |
 | `GetCurrencyAmount(type, location)` | Currency value; location = `CHARACTER` or `BANK` |
 | `GetCurrentCharacterId()` | Returns a 64-bit integer; always `tostring()` before using as a table key |
