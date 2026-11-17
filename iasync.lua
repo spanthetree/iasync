@@ -853,6 +853,7 @@ local function ScanStickerbook()
                         local collected  = IsItemSetCollectionSlotUnlocked(setId, slot) and true or false
                         local pieceName  = ""
                         local pieceIcon  = nil
+                        local pieceQuality = nil
                         if pieceId then
                             local ok3, link = pcall(GetItemSetCollectionPieceItemLink, pieceId,
                                 LINK_STYLE_DEFAULT or 1, ITEM_TRAIT_TYPE_NONE or 0)
@@ -861,24 +862,35 @@ local function ScanStickerbook()
                                 if ok4 and n then pieceName = n end
                                 local ok5, ic = pcall(GetItemLinkIcon, link)
                                 if ok5 and ic and ic ~= "" then pieceIcon = ic end
+                                local ok6, q = pcall(GetItemLinkDisplayQuality, link)
+                                if ok6 and type(q) == "number" then pieceQuality = q end
                             end
                         end
                         pieces[i] = {
+                            id         = pieceId,
                             filterType = filterType,
                             collected  = collected,
                             name       = pieceName,
                             icon       = pieceIcon,
+                            quality    = pieceQuality,
                         }
                     end
                 end
 
+                -- Transmute cost shown in the in-game set header (the UI only uses currency option 1).
+                local reconCurrency, reconCost
+                local ok7, cType, cCost = pcall(function() return collData:GetReconstructionCurrencyOptionInfo(1) end)
+                if ok7 and type(cCost) == "number" then reconCurrency, reconCost = cType, cCost end
+
                 sets[setId] = {
-                    name         = GetItemSetName(setId) or "",
-                    category     = topName or "",
-                    subcategory  = (subName ~= topName) and subName or "",
-                    numCollected = numUnlocked,
-                    numTotal     = numTotal,
-                    pieces       = pieces,
+                    name          = GetItemSetName(setId) or "",
+                    category      = topName or "",
+                    subcategory   = (subName ~= topName) and subName or "",
+                    numCollected  = numUnlocked,
+                    numTotal      = numTotal,
+                    pieces        = pieces,
+                    reconCurrency = reconCurrency,
+                    reconCost     = reconCost,
                 }
             end
         end

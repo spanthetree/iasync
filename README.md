@@ -133,7 +133,8 @@ iasync_data = {
       [setId] = {
         name, category, subcategory,
         numCollected, numTotal,
-        pieces = { [i] = { filterType, collected, name, icon } },  -- icon: /esoui/art/icons/... from GetItemLinkIcon
+        reconCurrency, reconCost,  -- transmute cost from the in-game set header (CURT_* currency type); nil if unknown
+        pieces = { [i] = { id, filterType, collected, name, icon, quality } },  -- icon: /esoui/art/icons/... from GetItemLinkIcon; quality: ITEM_DISPLAY_QUALITY_*
       }
     },
     categoryIcons = { [categoryName] = iconPath },  -- top-level category tree icons

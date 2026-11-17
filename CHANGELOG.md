@@ -4,6 +4,13 @@ All notable changes to iasync will be documented here.
 
 ## [Unreleased]
 
+## [1.7.0] — 2026-11-18
+
+### Added
+
+- Set reconstruction cost (`stickerbook.sets[id].reconCurrency`, `reconCost`), the transmute cost shown in the in-game Sets header
+- Set collection piece id and display quality (`pieces[i].id`, `pieces[i].quality`)
+
 ## [1.6.0] — 2026-11-17
 
 ### Added
