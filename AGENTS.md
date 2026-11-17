@@ -91,6 +91,7 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
   ```
   iasync_data.stickerbook = {
       lastUpdate = <unix timestamp>,
+      categoryIcons = { ["Dungeons"] = "/esoui/art/...dds" },  -- top-level category:GetKeyboardIcons()
       sets = {
           [setId] = {
               name         = "Mara's Balm",
@@ -100,9 +101,10 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
               numTotal     = 12,
               pieces = {
                   [i] = {
-                      filterType = <integer>,   -- armor/weapon type; unreliable, prefer name
+                      filterType = <integer>,   -- EQUIPMENT_FILTER_TYPE_* (1 light .. 11 bow)
                       collected  = true/false,
                       name       = "Mara's Balm Greaves",  -- from GetItemLinkName
+                      icon       = "/esoui/art/icons/gear_...dds",  -- from GetItemLinkIcon; nil if unavailable
                   }
               }
           }

@@ -726,6 +726,11 @@ local function ScanAchievements()
             hidesUnearned  = hidesUnearned and true or false,
             subcats        = {},
         }
+        -- Keyboard tree icon (e.g. /esoui/art/treeicons/achievements_indexicon_dungeons_up.dds)
+        if GetAchievementCategoryKeyboardIcons then
+            local okI, icon = pcall(GetAchievementCategoryKeyboardIcons, catIdx)
+            if okI and icon and icon ~= "" then catSumm.icon = icon end
+        end
         catSummaries[catIdx] = catSumm
 
         for subIdx = 1, numSubCats do
@@ -820,6 +825,7 @@ local function ScanStickerbook()
     end
 
     local sets = {}
+    local categoryIcons = {}
     local totalSets, collectedSets = 0, 0
 
     local function processCategory(catData, topName, subName)
@@ -846,18 +852,22 @@ local function ScanStickerbook()
                         local filterType = GetEquipmentFilterTypeForItemSetCollectionSlot(slot) or 0
                         local collected  = IsItemSetCollectionSlotUnlocked(setId, slot) and true or false
                         local pieceName  = ""
+                        local pieceIcon  = nil
                         if pieceId then
                             local ok3, link = pcall(GetItemSetCollectionPieceItemLink, pieceId,
                                 LINK_STYLE_DEFAULT or 1, ITEM_TRAIT_TYPE_NONE or 0)
                             if ok3 and link and link ~= "" then
                                 local ok4, n = pcall(GetItemLinkName, link)
                                 if ok4 and n then pieceName = n end
+                                local ok5, ic = pcall(GetItemLinkIcon, link)
+                                if ok5 and ic and ic ~= "" then pieceIcon = ic end
                             end
                         end
                         pieces[i] = {
                             filterType = filterType,
                             collected  = collected,
                             name       = pieceName,
+                            icon       = pieceIcon,
                         }
                     end
                 end
@@ -878,6 +888,8 @@ local function ScanStickerbook()
         for _, catData in ITEM_SET_COLLECTIONS_DATA_MANAGER:TopLevelItemSetCollectionCategoryIterator() do
             local nameOk, catName = pcall(function() return catData:GetName() end)
             local name = (nameOk and catName) or "Unknown"
+            local iconOk, icon = pcall(function() return catData:GetKeyboardIcons() end)
+            if iconOk and icon and icon ~= "" then categoryIcons[name] = icon end
             processCategory(catData, name, name)
         end
     end)
@@ -888,8 +900,9 @@ local function ScanStickerbook()
     end
 
     iasync_data.stickerbook = {
-        sets       = sets,
-        lastUpdate = GetTimeStamp(),
+        sets          = sets,
+        categoryIcons = categoryIcons,
+        lastUpdate    = GetTimeStamp(),
     }
     d(string.format("[iasync] Stickerbook: %d sets · %d fully collected", totalSets, collectedSets))
 end

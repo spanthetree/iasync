@@ -122,7 +122,7 @@ iasync_data = {
     },
     categories = {
       [catIdx] = {
-        name, total, complete, earnedPts, totalPts, numAchievements, hidesUnearned,
+        name, icon, total, complete, earnedPts, totalPts, numAchievements, hidesUnearned,  -- icon: keyboard tree icon path
         subcats = { [subIdx] = { name, total, complete, earnedPts, totalPts, numAchievements, hidesUnearned } },
       }
     },
@@ -133,9 +133,10 @@ iasync_data = {
       [setId] = {
         name, category, subcategory,
         numCollected, numTotal,
-        pieces = { [i] = { filterType, collected, name } },
+        pieces = { [i] = { filterType, collected, name, icon } },  -- icon: /esoui/art/icons/... from GetItemLinkIcon
       }
     },
+    categoryIcons = { [categoryName] = iconPath },  -- top-level category tree icons
     lastUpdate,
   },
   abilityNames = {},   -- legacy; kept for backwards compat, not actively written
