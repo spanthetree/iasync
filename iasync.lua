@@ -608,18 +608,55 @@ local function ResolveBuildNames()
     local c = iasync_data.chars[charId]
     if not c then return end
 
-    local abilityNames, cpNames, cpDescriptions = {}, {}, {}
+    local abilityNames = c.abilityNames or {}
+    local abilityIcons = c.abilityIcons or {}
+    local cpNames, cpDescriptions = {}, {}
     local abilityCount, cpCount = 0, 0
+    local seen = {}
 
-    local bars = c.build_bars or {}
-    for _, bar in pairs(bars) do
-        if type(bar) == "table" then
-            for _, id in pairs(bar) do
-                if type(id) == "number" and id > 0 then
-                    local name = GetAbilityName(id)
-                    if name and name ~= "" then
-                        abilityNames[id] = name
-                        abilityCount = abilityCount + 1
+    local function resolveAbility(id)
+        if type(id) ~= "number" or id <= 0 or seen[id] then return end
+        seen[id] = true
+        local okName, name = pcall(GetAbilityName, id, "player")
+        if okName and type(name) == "string" and name ~= "" then
+            abilityNames[id] = name
+            abilityCount = abilityCount + 1
+        elseif not okName then
+            d(string.format("[iasync] Ability %d name lookup failed: %s", id, tostring(name)))
+        end
+        if GetAbilityIcon then
+            local okIcon, icon = pcall(GetAbilityIcon, id)
+            if okIcon and type(icon) == "string" and icon ~= "" then
+                abilityIcons[id] = icon
+            elseif not okIcon then
+                d(string.format("[iasync] Ability %d icon lookup failed: %s", id, tostring(icon)))
+            end
+        end
+    end
+
+    local function resolveBars(bars)
+        if type(bars) ~= "table" then return end
+        for _, bar in pairs(bars) do
+            if type(bar) == "table" then
+                for slot = 3, 8 do resolveAbility(bar[slot]) end
+            end
+        end
+    end
+
+    resolveBars(c.build_bars)
+    -- Only the logged-in character's saved setups can be resolved in this session.
+    local defaults = WizardsWardrobeSV and WizardsWardrobeSV.Default
+    local account = defaults and defaults[GetDisplayName()]
+    local wardrobe = account and account[charId]
+    local setups = wardrobe and wardrobe.setups
+    if type(setups) == "table" then
+        for _, zone in pairs(setups) do
+            if type(zone) == "table" then
+                for _, page in pairs(zone) do
+                    if type(page) == "table" then
+                        for _, setup in pairs(page) do
+                            if type(setup) == "table" then resolveBars(setup.skills) end
+                        end
                     end
                 end
             end
@@ -642,6 +679,7 @@ local function ResolveBuildNames()
     end
 
     c.abilityNames = abilityNames
+    c.abilityIcons = abilityIcons
     c.cpNames      = cpNames
     c.cpDescriptions = cpDescriptions  -- slotted stars, at their current points
     iasync_data.lastUpdate = GetTimeStamp()
