@@ -12,7 +12,7 @@ All notable changes to iasync will be documented here.
 - Character details: level, Champion Points, title, zone, riding skill, guild ranks and Alliance War rank
 - Every currency (`chars[id].currencies` for character-held, top-level `currencies` for account-held and banked amounts), not only gold, AP, Tel Var and writ vouchers
 - Crafting knowledge per character: trait research with research in progress (`research`), known motif chapters (`motifs`) and known recipes (`recipes`)
-- Scribing (`scribing`): grimoires and scripts unlocked
+- Scribing per character (`chars[id].scribing`): grimoires and scripts unlocked
 - Antiquities (`antiquities`): leads held with expiry, recoveries and Codex lore entries
 
 ## [1.10.0] — 2026-11-18

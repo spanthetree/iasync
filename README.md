@@ -96,6 +96,12 @@ iasync_data = {
                                                 researching = { { traitType, endTime }, ... } } }, clothier = ..., woodworking = ..., jewelrycrafting = ... },
       motifs = { [styleId] = { name, numChapters, known = { "helmets", ... } } },  -- styles with at least one chapter known
       recipes = { [listIndex] = { name, total, known = { "Recipe Name", ... } } },
+      scribing = {
+        grimoires = { [craftedAbilityId] = { name, icon, abilityId, unlocked, scribed,
+                                            scripts = { primary = { scriptId, ... }, secondary = { ... }, tertiary = { ... } } } },
+        scripts = { [scriptId] = { name, unlocked } },
+        lastUpdate,
+      },
       build_mundus = { "Stone Name", ... },   -- nil if none active; Lua sequential table
       build_cp = { earned = N, slots = { [slot] = abilityId } },
       abilityNames = { [abilityId] = "Name" },
@@ -172,12 +178,6 @@ iasync_data = {
   },
   currencies = {  -- keyed by CURT_* suffix; account = account-held amount, bank = banked amount of a character-held currency
     ["SEALS"] = { name, account }, ["MONEY"] = { name, bank }, ...
-  },
-  scribing = {
-    grimoires = { [craftedAbilityId] = { name, icon, abilityId, unlocked, scribed,
-                                        scripts = { primary = { scriptId, ... }, secondary = { ... }, tertiary = { ... } } } },
-    scripts = { [scriptId] = { name, unlocked } },
-    lastUpdate,
   },
   antiquities = {
     items = { [antiquityId] = { name, icon, quality, setId, zoneId, repeatable, numRecovered, loreAcquired, loreTotal, hasLead, leadExpires } },

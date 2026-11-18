@@ -1375,10 +1375,12 @@ local function ScanCharacterDetails()
     end
 end
 
--- ── Scribing and antiquities (account-wide) ─────────────────────────────────
+-- ── Scribing (per character) and antiquities (account-wide) ────────────────
 
 local function ScanScribing()
     if not GetNumCraftedAbilities or (IsScribingEnabled and not call(IsScribingEnabled)) then return end
+    local c = iasync_data.chars[tostring(GetCurrentCharacterId())]
+    if not c then return end
     local slots = {
         { key = "primary",   value = SCRIBING_SLOT_PRIMARY },
         { key = "secondary", value = SCRIBING_SLOT_SECONDARY },
@@ -1418,7 +1420,7 @@ local function ScanScribing()
             grimoires[craftedId] = g
         end
     end
-    iasync_data.scribing = { grimoires = grimoires, scripts = scripts, lastUpdate = GetTimeStamp() }
+    c.scribing = { grimoires = grimoires, scripts = scripts, lastUpdate = GetTimeStamp() }
 end
 
 local function ScanAntiquities()
