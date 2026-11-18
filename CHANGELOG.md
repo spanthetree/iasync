@@ -8,7 +8,7 @@ All notable changes to iasync will be documented here.
 
 ### Added
 
-- Activities (`activities`): daily and weekly Endeavors and Tamriel Tome seasonal challenges (`timed`, with progress, max progress, end time and currency reward), per-type limits and reset times (`limits`), and Golden Pursuits campaigns (`campaigns`, with each activity's progress, milestones and capstone). Rescanned 2 s after any progress event
+- Activities (`activities`): daily and weekly Endeavors and Tamriel Tome seasonal challenges (`timed`, with progress, max progress, end time and currency reward), per-type limits and reset times (`limits`), Golden Pursuits campaigns (`campaigns`, with each activity's progress, milestones and capstone), and the Tamriel Tome pass (`tome`: level, points, premium ownership, and every tier's free and premium rewards with name, icon and claimed state). Rescanned 2 s after any progress event
 
 ## [1.10.0] — 2026-11-18
 

@@ -1157,10 +1157,72 @@ local function ScanActivities()
         end
     end
 
+    -- Tamriel Tome season pass: level, points and the reward track (free and premium components).
+    local tome
+    local TOMES = REWARD_TRACK_TYPE_TAMRIEL_TOMES
+    if TOMES and GetInfoForRewardTrack and (not IsTamrielTomesEnabled or call(IsTamrielTomesEnabled)) then
+        local refId = call(GetActiveReferenceTrackIdsForRewardTrackType, TOMES)
+        local refIdx = refId and call(GetReferenceTrackIndex, TOMES, refId)
+        local trackId, currentTier, progressToNext = call(GetInfoForRewardTrack, TOMES, refIdx or 1)
+        if trackId and trackId > 0 then
+            local tomeId = call(GetActiveTamrielTomeSeasonDefId)
+            local components = {
+                { key = "primary",   value = REWARD_TRACK_COMPONENT_PRIMARY },
+                { key = "secondary", value = REWARD_TRACK_COMPONENT_SECONDARY },
+            }
+            local function rewardName(rewardId, qty)
+                if not (REWARDS_MANAGER and rewardId and rewardId > 0) then return nil end
+                local ok, name, icon = pcall(function()
+                    local data = REWARDS_MANAGER:GetInfoForReward(rewardId, qty or 1)
+                    return data:GetFormattedName(), data:GetKeyboardIcon()
+                end)
+                if ok then return name, icon end
+            end
+            tome = {
+                id             = tomeId,
+                name           = call(GetRewardTrackDisplayName, trackId) or "",
+                trackId        = trackId,
+                tier           = currentTier or 0,     -- current pass level
+                progressToNext = progressToNext or 0,  -- tome points into the current tier
+                endTime        = call(GetActiveTamrielTomeSeasonEndTimeS),
+                premium        = tomeId and TAMRIEL_TOME_PRODUCT_TYPE_PREMIUM and call(HasTamrielTomeProductType, tomeId, TAMRIEL_TOME_PRODUCT_TYPE_PREMIUM) and true or false,
+                premiumPlus    = tomeId and TAMRIEL_TOME_PRODUCT_TYPE_PREMIUM_PLUS and call(HasTamrielTomeProductType, tomeId, TAMRIEL_TOME_PRODUCT_TYPE_PREMIUM_PLUS) and true or false,
+                access         = {},
+                tiers          = {},
+            }
+            for _, comp in ipairs(components) do
+                if comp.value then tome.access[comp.key] = call(HasAccessToRewardTrackComponent, TOMES, refIdx or 1, comp.value) and true or false end
+            end
+            for tier = 1, call(GetTotalNumTiersForRewardTrack, trackId) or 0 do
+                local entry = { totalProgress = call(GetTotalProgressAtRewardTrackTier, trackId, tier) or 0 }
+                for _, comp in ipairs(components) do
+                    if comp.value then
+                        local rewards = {}
+                        for r = 1, call(GetNumRewardsAtRewardTrackTier, trackId, tier, comp.value) or 0 do
+                            local rewardId, amount, _, quality = call(GetTamrielTomesRewardInfo, trackId, tier, comp.value, r)
+                            local name, icon = rewardName(rewardId, amount)
+                            rewards[r] = {
+                                id       = rewardId,
+                                quantity = amount,
+                                quality  = quality,
+                                name     = name,
+                                icon     = icon,
+                                claimed  = call(GetRewardTrackRewardClaimedState, TOMES, refIdx or 1, tier, comp.value, r) and true or false,
+                            }
+                        end
+                        entry[comp.key] = rewards
+                    end
+                end
+                tome.tiers[tier] = entry
+            end
+        end
+    end
+
     iasync_data.activities = {
         timed      = timed,
         limits     = limits,
         campaigns  = campaigns,
+        tome       = tome,
         lastUpdate = now,
     }
 end

@@ -19,7 +19,7 @@ iasync is read-only. It never changes your inventory, builds or any other game s
 - **Storage**: personal bank, ESO Plus bank, craft bag, house storage chests and guild bank.
 - **Achievements**: every achievement with criteria progress, rewards, completion date and the character who earned it, split into account-wide and per-character. Includes category point totals that match the in-game summary.
 - **Set collections**: collected pieces for every set in the stickerbook.
-- **Activities**: daily and weekly Endeavors, Tamriel Tome seasonal challenges and Golden Pursuits campaigns, with progress toward each.
+- **Activities**: daily and weekly Endeavors, Tamriel Tome seasonal challenges, the Tamriel Tome pass (level and reward track) and Golden Pursuits campaigns, with progress toward each.
 - **Collectibles**: the in-game Collections tree with unlocked state, including mounts, pets, costumes, houses, outfit styles and Tales of Tribute patrons.
 
 ## Requirements
@@ -169,6 +169,12 @@ iasync_data = {
         activities = { [i] = { id, name, description, progress, maxProgress, claimed } },
         milestones = { [i] = { threshold, claimed } },
       }
+    },
+    tome = {  -- Tamriel Tome season pass; nil when Tomes are disabled
+      id, name, trackId, tier, progressToNext, endTime, premium, premiumPlus,
+      access = { primary, secondary },  -- whether this account can claim each reward component
+      tiers = { [tier] = { totalProgress, primary = { [i] = reward }, secondary = { [i] = reward } } },
+      -- reward = { id, quantity, quality, name, icon, claimed }
     },
     lastUpdate,
   },
