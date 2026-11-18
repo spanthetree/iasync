@@ -1047,6 +1047,7 @@ local function ScanCollectibles()
                     neutral       = call(IsTributePatronNeutral, patronId) and true or false,
                     category      = categoryId and call(GetTributePatronCategoryName, categoryId) or nil,
                     categoryIcon  = categoryId and call(GetTributePatronCategoryKeyboardIcons, categoryId) or nil,
+                    categoryOrder = categoryId and call(GetTributePatronCategorySortOrder, categoryId) or nil,
                 }
             end
         end
