@@ -4,6 +4,12 @@ All notable changes to iasync will be documented here.
 
 ## [Unreleased]
 
+## [1.11.0] — 2026-11-18
+
+### Added
+
+- Activities (`activities`): daily and weekly Endeavors and Tamriel Tome seasonal challenges (`timed`, with progress, max progress, end time and currency reward), per-type limits and reset times (`limits`), and Golden Pursuits campaigns (`campaigns`, with each activity's progress, milestones and capstone). Rescanned 2 s after any progress event
+
 ## [1.10.0] — 2026-11-18
 
 ### Added

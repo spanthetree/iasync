@@ -19,6 +19,7 @@ iasync is read-only. It never changes your inventory, builds or any other game s
 - **Storage**: personal bank, ESO Plus bank, craft bag, house storage chests and guild bank.
 - **Achievements**: every achievement with criteria progress, rewards, completion date and the character who earned it, split into account-wide and per-character. Includes category point totals that match the in-game summary.
 - **Set collections**: collected pieces for every set in the stickerbook.
+- **Activities**: daily and weekly Endeavors, Tamriel Tome seasonal challenges and Golden Pursuits campaigns, with progress toward each.
 - **Collectibles**: the in-game Collections tree with unlocked state, including mounts, pets, costumes, houses, outfit styles and Tales of Tribute patrons.
 
 ## Requirements
@@ -154,6 +155,20 @@ iasync_data = {
     },
     patrons = {  -- Tales of Tribute patrons
       [patronId] = { name, collectibleId, icon, smallIcon, suitIcon, rarity, neutral, category, categoryIcon, categoryOrder },  -- category = in-game tree header ("Patrons", "Neutral")
+    },
+    lastUpdate,
+  },
+  activities = {  -- account-wide snapshot at scan time; times are unix seconds
+    timed = {  -- Endeavors and Tamriel Tome seasonal challenges
+      [i] = { id, name, description, type, difficulty, progress, maxProgress, endTime, currencyType, currencyQty },  -- type: "daily", "weekly" or "seasonal"
+    },
+    limits = { daily = { limit, completed, resetTime }, weekly = { ... }, seasonal = { ... } },
+    campaigns = {  -- Golden Pursuits
+      [i] = {
+        id, name, description, numCompleted, capstoneThreshold, capstoneClaimed, endTime,
+        activities = { [i] = { id, name, description, progress, maxProgress, claimed } },
+        milestones = { [i] = { threshold, claimed } },
+      }
     },
     lastUpdate,
   },

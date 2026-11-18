@@ -1064,6 +1064,107 @@ local function ScanCollectibles()
     d(string.format("[iasync] Collectibles: %d / %d unlocked", unlocked, total))
 end
 
+-- ── Timed activities and Golden Pursuits (account-wide) ────────────────────
+-- Endeavors (daily, weekly) and Tamriel Tome seasonal challenges are timed activities;
+-- Golden Pursuits are promotional event campaigns. Progress is a snapshot at scan time.
+
+local function call(fn, ...)
+    if not fn then return nil end
+    local ok, a, b, c, d, e, f = pcall(fn, ...)
+    if ok then return a, b, c, d, e, f end
+end
+
+local function ScanActivities()
+    local now = GetTimeStamp()
+    local typeNames = {}
+    if TIMED_ACTIVITY_TYPE_DAILY    then typeNames[TIMED_ACTIVITY_TYPE_DAILY]    = "daily"    end
+    if TIMED_ACTIVITY_TYPE_WEEKLY   then typeNames[TIMED_ACTIVITY_TYPE_WEEKLY]   = "weekly"   end
+    if TIMED_ACTIVITY_TYPE_SEASONAL then typeNames[TIMED_ACTIVITY_TYPE_SEASONAL] = "seasonal" end
+
+    local timed, limits = {}, {}
+    if GetNumTimedActivities and (not IsTimedActivitySystemAvailable or call(IsTimedActivitySystemAvailable)) then
+        for i = 1, call(GetNumTimedActivities) or 0 do
+            local aType = call(GetTimedActivityType, i)
+            local cType, cQty = call(GetTimedActivityCurrencyRewardInfo, i)
+            timed[i] = {
+                id          = call(GetTimedActivityId, i),
+                name        = call(GetTimedActivityName, i) or "",
+                description = call(GetTimedActivityDescription, i) or "",
+                type        = typeNames[aType] or tostring(aType),
+                difficulty  = call(GetTimedActivityDifficulty, i),
+                progress    = call(GetTimedActivityProgress, i) or 0,
+                maxProgress = call(GetTimedActivityMaxProgress, i) or 0,
+                endTime     = call(GetTimedActivityEndTimeS, i),  -- unix seconds
+                currencyType = cType,   -- reward, e.g. Seals of Endeavor or Tome Points
+                currencyQty  = cQty,
+            }
+        end
+        for aType, name in pairs(typeNames) do
+            limits[name] = {
+                limit     = call(GetTimedActivityTypeLimit, aType),
+                completed = call(GetNumTimedActivitiesCompleted, aType),
+                resetTime = call(GetTimedActivityTypeResetTimeS, aType),  -- unix seconds
+            }
+        end
+    end
+
+    local claimedFlag = PROMOTIONAL_EVENTS_REWARD_FLAG_CLAIMED
+    local function claimed(flags)
+        if not (claimedFlag and BitAnd and type(flags) == "number") then return nil end
+        return BitAnd(flags, claimedFlag) ~= 0
+    end
+
+    local campaigns = {}
+    if GetNumActivePromotionalEventCampaigns and not call(IsPromotionalEventSystemLocked) then
+        for c = 1, call(GetNumActivePromotionalEventCampaigns) or 0 do
+            local key = call(GetActivePromotionalEventCampaignKey, c)  -- id64; passed straight back, never stored
+            local campaignId, numActivities, numMilestones, capstoneThreshold = call(GetPromotionalEventCampaignInfo, key)
+            if campaignId and (not ShouldPromotionalEventCampaignBeVisible or call(ShouldPromotionalEventCampaignBeVisible, key)) then
+                local numCompleted, capstoneFlags = call(GetPromotionalEventCampaignProgress, key)
+                local remaining = call(GetSecondsRemainingInPromotionalEventCampaign, key)
+                local camp = {
+                    id                = campaignId,
+                    name              = call(GetPromotionalEventCampaignDisplayName, campaignId) or "",
+                    description       = call(GetPromotionalEventCampaignDescription, campaignId) or "",
+                    numCompleted      = numCompleted or 0,
+                    capstoneThreshold = capstoneThreshold or 0,  -- activities needed for the capstone reward
+                    capstoneClaimed   = claimed(capstoneFlags),
+                    endTime           = remaining and (now + remaining) or nil,
+                    activities        = {},
+                    milestones        = {},
+                }
+                for a = 1, numActivities or 0 do
+                    local actId, actName, actDesc, threshold = call(GetPromotionalEventCampaignActivityInfo, key, a)
+                    local progress, flags = call(GetPromotionalEventCampaignActivityProgress, key, a)
+                    camp.activities[a] = {
+                        id          = actId,
+                        name        = actName or "",
+                        description = actDesc or "",
+                        progress    = progress or 0,
+                        maxProgress = threshold or 0,
+                        claimed     = claimed(flags),
+                    }
+                end
+                for m = 1, numMilestones or 0 do
+                    local threshold = call(GetPromotionalEventCampaignMilestoneInfo, key, m)
+                    camp.milestones[m] = {
+                        threshold = threshold or 0,
+                        claimed   = claimed(call(GetPromotionalEventCampaignMilestoneRewardFlags, key, m)),
+                    }
+                end
+                campaigns[#campaigns + 1] = camp
+            end
+        end
+    end
+
+    iasync_data.activities = {
+        timed      = timed,
+        limits     = limits,
+        campaigns  = campaigns,
+        lastUpdate = now,
+    }
+end
+
 -- ── UI colours ──────────────────────────────────────────────────────────────
 -- Interface colours live in the client, not in the UI source; ESO Armory uses
 -- them to draw its Achievements and Collections tabs in the in-game colours.
@@ -1104,6 +1205,7 @@ local function OnPlayerActivated()
     zo_callLater(ScanAchievements, 5000)
     zo_callLater(ScanStickerbook, 7000)
     zo_callLater(ScanCollectibles, 9000)
+    zo_callLater(ScanActivities, 4000)
     ScanUiColors()
 end
 
@@ -1144,6 +1246,7 @@ local function OnAddonLoaded(_, addonName)
     iasync_data.achievements = iasync_data.achievements or { account = {} }
     iasync_data.stickerbook  = iasync_data.stickerbook  or { sets = {} }
     iasync_data.collectibles = iasync_data.collectibles or { categories = {}, items = {} }
+    iasync_data.activities   = iasync_data.activities   or { timed = {}, limits = {}, campaigns = {} }
     EVENT_MANAGER:UnregisterForEvent(ADDON_NAME .. "_Load", EVENT_ADD_ON_LOADED)
 end
 
@@ -1160,6 +1263,26 @@ if EVENT_ACHIEVEMENTS_UPDATED then
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_AchUpd", EVENT_ACHIEVEMENTS_UPDATED, ScanAchievements)
 end
 
+-- Activity progress events can fire on every kill; rescan once, 2 s after the burst.
+local activityRescanPending = false
+local function OnActivityChanged()
+    if activityRescanPending then return end
+    activityRescanPending = true
+    zo_callLater(function()
+        activityRescanPending = false
+        ScanActivities()
+    end, 2000)
+end
+local activityEvents = {  -- may contain nils on older clients, so index 1..5 rather than ipairs
+    EVENT_TIMED_ACTIVITIES_UPDATED, EVENT_TIMED_ACTIVITY_PROGRESS_UPDATED,
+    EVENT_PROMOTIONAL_EVENTS_CAMPAIGNS_UPDATED, EVENT_PROMOTIONAL_EVENTS_ACTIVITY_PROGRESS_UPDATED,
+    EVENT_PROMOTIONAL_EVENTS_REWARDS_CLAIMED,
+}
+for i = 1, 5 do
+    local ev = activityEvents[i]
+    if ev then EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Act" .. i, ev, OnActivityChanged) end
+end
+
 -- Manual trigger for testing: /script iasync_scan()
 function iasync_scan()
     ScanCharacterBags()
@@ -1167,5 +1290,6 @@ function iasync_scan()
     ScanAchievements()
     ScanStickerbook()
     ScanCollectibles()
+    ScanActivities()
     ScanUiColors()
 end
