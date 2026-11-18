@@ -938,6 +938,84 @@ local function ScanStickerbook()
     d(string.format("[iasync] Stickerbook: %d sets · %d fully collected", totalSets, collectedSets))
 end
 
+-- ── Collectibles (account-wide) ─────────────────────────────────────────────
+-- The in-game Collections tree: mounts, pets, costumes, houses (HOUSING), outfit styles
+-- (OUTFIT_STYLES), Tales of Tribute patrons (TRIBUTE_PATRONS) and so on. Every one is a collectible.
+
+local function ScanCollectibles()
+    if not GetNumCollectibleCategories then return end
+    local categories, items = {}, {}
+    local total, unlocked = 0, 0
+
+    local function addItems(topIdx, subIdx, count)
+        for i = 1, count or 0 do
+            local okId, id = pcall(GetCollectibleId, topIdx, subIdx, i)
+            if okId and id and id > 0 then
+                local ok, name, _, icon, _, isUnlocked, _, _, categoryType = pcall(GetCollectibleInfo, id)
+                if ok then
+                    items[id] = {
+                        name         = name or "",
+                        icon         = (icon ~= "" and icon) or nil,
+                        unlocked     = isUnlocked and true or false,
+                        categoryType = categoryType,
+                        cat          = topIdx,
+                        sub          = subIdx or 0,  -- 0 = directly under the top-level category
+                    }
+                    total = total + 1
+                    if isUnlocked then unlocked = unlocked + 1 end
+                end
+            end
+        end
+    end
+
+    local function icon(topIdx, subIdx)
+        if not GetCollectibleCategoryKeyboardIcons then return nil end
+        local ok, normal = pcall(GetCollectibleCategoryKeyboardIcons, topIdx, subIdx)
+        return (ok and normal ~= "" and normal) or nil
+    end
+
+    for topIdx = 1, GetNumCollectibleCategories() do
+        local ok, name, numSubs, numItems, numUnlocked, numTotal, hidesLocked = pcall(GetCollectibleCategoryInfo, topIdx)
+        if ok then
+            local spec
+            if GetCollectibleCategorySpecialization then
+                local okSpec, sp = pcall(GetCollectibleCategorySpecialization, topIdx)
+                if okSpec then spec = sp end
+            end
+            local cat = {
+                name           = name or "",
+                icon           = icon(topIdx, nil),
+                specialization = spec,  -- COLLECTIBLE_CATEGORY_SPECIALIZATION_*: which Collections tab it belongs to
+                numUnlocked    = numUnlocked or 0,
+                numTotal       = numTotal or 0,
+                hidesLocked    = hidesLocked and true or false,
+                subcats        = {},
+            }
+            addItems(topIdx, nil, numItems)
+            for subIdx = 1, numSubs or 0 do
+                local okSub, sName, sItems, sUnlocked, sTotal = pcall(GetCollectibleSubCategoryInfo, topIdx, subIdx)
+                if okSub then
+                    cat.subcats[subIdx] = {
+                        name        = sName or "",
+                        icon        = icon(topIdx, subIdx),
+                        numUnlocked = sUnlocked or 0,
+                        numTotal    = sTotal or 0,
+                    }
+                    addItems(topIdx, subIdx, sItems)
+                end
+            end
+            categories[topIdx] = cat
+        end
+    end
+
+    iasync_data.collectibles = {
+        categories = categories,
+        items      = items,
+        lastUpdate = GetTimeStamp(),
+    }
+    d(string.format("[iasync] Collectibles: %d / %d unlocked", unlocked, total))
+end
+
 -- ── UI colours ──────────────────────────────────────────────────────────────
 -- Interface colours live in the client, not in the UI source; ESO Armory uses
 -- them to draw its Achievements and Collections tabs in the in-game colours.
@@ -977,6 +1055,7 @@ local function OnPlayerActivated()
     zo_callLater(ScanHouseChests, 3000)
     zo_callLater(ScanAchievements, 5000)
     zo_callLater(ScanStickerbook, 7000)
+    zo_callLater(ScanCollectibles, 9000)
     ScanUiColors()
 end
 
@@ -1016,6 +1095,7 @@ local function OnAddonLoaded(_, addonName)
     iasync_data.cpNames      = iasync_data.cpNames      or {}
     iasync_data.achievements = iasync_data.achievements or { account = {} }
     iasync_data.stickerbook  = iasync_data.stickerbook  or { sets = {} }
+    iasync_data.collectibles = iasync_data.collectibles or { categories = {}, items = {} }
     EVENT_MANAGER:UnregisterForEvent(ADDON_NAME .. "_Load", EVENT_ADD_ON_LOADED)
 end
 
@@ -1038,5 +1118,6 @@ function iasync_scan()
     ResolveBuildNames()
     ScanAchievements()
     ScanStickerbook()
+    ScanCollectibles()
     ScanUiColors()
 end

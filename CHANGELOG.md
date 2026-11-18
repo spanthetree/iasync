@@ -4,6 +4,12 @@ All notable changes to iasync will be documented here.
 
 ## [Unreleased]
 
+## [1.9.0] — 2026-11-18
+
+### Added
+
+- Collectibles (`collectibles`): the in-game Collections tree, with each collectible's name, icon, unlocked state and category. Covers mounts, pets, costumes, houses, outfit styles and Tales of Tribute patrons. Each top-level category's `specialization` names its Collections tab
+
 ## [1.8.1] — 2026-11-18
 
 ### Fixed

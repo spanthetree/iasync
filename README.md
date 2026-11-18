@@ -19,6 +19,7 @@ iasync is read-only. It never changes your inventory, builds or any other game s
 - **Storage**: personal bank, ESO Plus bank, craft bag, house storage chests and guild bank.
 - **Achievements**: every achievement with criteria progress, rewards, completion date and the character who earned it, split into account-wide and per-character. Includes category point totals that match the in-game summary.
 - **Set collections**: collected pieces for every set in the stickerbook.
+- **Collectibles**: the in-game Collections tree with unlocked state, including mounts, pets, costumes, houses, outfit styles and Tales of Tribute patrons.
 
 ## Requirements
 
@@ -138,6 +139,19 @@ iasync_data = {
       }
     },
     categoryIcons = { [categoryName] = iconPath },  -- top-level category tree icons
+    lastUpdate,
+  },
+  collectibles = {  -- account-wide; the in-game Collections tree
+    categories = {
+      [topIdx] = {
+        name, icon, specialization,  -- COLLECTIBLE_CATEGORY_SPECIALIZATION_* (NONE, DLC, HOUSING, OUTFIT_STYLES, TRIBUTE_PATRONS)
+        numUnlocked, numTotal, hidesLocked,
+        subcats = { [subIdx] = { name, icon, numUnlocked, numTotal } },
+      }
+    },
+    items = {
+      [collectibleId] = { name, icon, unlocked, categoryType, cat, sub },  -- cat/sub index into categories; sub = 0 for top-level items
+    },
     lastUpdate,
   },
   uiColors = {  -- "rrggbb" from GetInterfaceColor; nil if a constant is missing
