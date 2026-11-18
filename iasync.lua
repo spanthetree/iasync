@@ -1,5 +1,5 @@
 -- iasync: Inventory Armory Sync for ESO Armory web app.
--- Scans character bags, bank (on open), house chests (when in house), and guild bank (on open).
+-- Scans character bags, bank (on open), house chests (when in house), and each guild bank (when viewed).
 -- Captures trait/enchant/set enrichment and resolves skill/CP ability names.
 
 iasync = {}
@@ -528,23 +528,43 @@ local function ScanHouseChests()
     d(string.format("[iasync] House '%s': %d chest(s) scanned", houseName, chestCount))
 end
 
--- ── Guild bank (on open) ─────────────────────────────────────────────────────
+-- ── Guild bank (when its items load) ────────────────────────────────────────
+-- EVENT_OPEN_GUILD_BANK fires before the selected guild's items arrive; EVENT_GUILD_BANK_ITEMS_READY fires once they
+-- have (again after switching guilds). Guild bank slot ids are not 0..size-1, so walk them like the game UI does.
 
 local function ScanGuildBank()
-    local guildName = "GuildBank"
-    for i = 1, GetNumGuilds() do
-        local id = GetGuildId(i)
-        if id then
-            guildName = GetGuildName(id) or ("Guild " .. i)
-            break
+    local guildId = GetSelectedGuildBankId()
+    if not guildId or guildId == 0 then return end
+    local guildName = GetGuildName(guildId)
+    if not guildName or guildName == "" then return end
+
+    local slots, count = {}, 0
+    local slot = ZO_GetNextBagSlotIndex(BAG_GUILDBANK)
+    while slot do
+        local ok, data = pcall(CaptureSlot, BAG_GUILDBANK, slot)
+        if ok and data then
+            slots[slot] = data
+            count = count + 1
         end
+        slot = ZO_GetNextBagSlotIndex(BAG_GUILDBANK, slot)
     end
 
     iasync_data.guildBanks[guildName] = {
-        slots      = ScanBag(BAG_GUILDBANK),
+        slots      = slots,
         lastUpdate = GetTimeStamp(),
     }
-    d(string.format("[iasync] Guild bank '%s' scanned", guildName))
+    d(string.format("[iasync] Guild bank '%s': %d item stacks scanned", guildName, count))
+end
+
+-- Deposits and withdrawals: rescan once the burst of item events settles.
+local guildBankRescanPending = false
+local function OnGuildBankChanged()
+    if guildBankRescanPending then return end
+    guildBankRescanPending = true
+    zo_callLater(function()
+        guildBankRescanPending = false
+        ScanGuildBank()
+    end, 500)
 end
 
 -- ── Build name resolution ────────────────────────────────────────────────────
@@ -611,14 +631,6 @@ local function UpdateSlot(bagId, slotIndex)
         local bank = iasync_data.bank
         bank.bags[bagId] = bank.bags[bagId] or {}
         bank.bags[bagId][slotIndex] = data
-
-    elseif bagId == BAG_GUILDBANK then
-        for _, gbData in pairs(iasync_data.guildBanks) do
-            gbData.slots = gbData.slots or {}
-            gbData.slots[slotIndex] = data
-            gbData.lastUpdate = GetTimeStamp()
-            break
-        end
 
     elseif IsHouseBag(bagId) then
         local houseKey = GetHouseKey()
@@ -963,7 +975,7 @@ end
 
 local function OnInventorySlotUpdate(_, bagId, slotIndex)
     if IS_CHAR_BAG[bagId] or IS_BANK_BAG[bagId]
-        or bagId == BAG_GUILDBANK or IsHouseBag(bagId)
+        or IsHouseBag(bagId)
     then
         UpdateSlot(bagId, slotIndex)
     end
@@ -976,6 +988,11 @@ local function OnAddonLoaded(_, addonName)
     iasync_data.bank         = iasync_data.bank         or {}
     iasync_data.bank.bags    = iasync_data.bank.bags    or {}
     iasync_data.guildBanks   = iasync_data.guildBanks   or {}
+    -- Before 1.8.0 every guild bank was filed under the first guild's name, often with empty or partial contents.
+    if (iasync_data.guildBankFormat or 1) < 2 then
+        iasync_data.guildBanks      = {}
+        iasync_data.guildBankFormat = 2
+    end
     iasync_data.houses       = iasync_data.houses       or {}
     iasync_data.abilityNames = iasync_data.abilityNames or {}
     iasync_data.cpNames      = iasync_data.cpNames      or {}
@@ -988,7 +1005,10 @@ EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Load",      EVENT_ADD_ON_LOADED, 
 EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Player",    EVENT_PLAYER_ACTIVATED,             OnPlayerActivated)
 EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Inv",       EVENT_INVENTORY_SINGLE_SLOT_UPDATE, OnInventorySlotUpdate)
 EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Bank",      EVENT_OPEN_BANK,                    ScanBankBags)
-EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_GuildBank", EVENT_OPEN_GUILD_BANK,              ScanGuildBank)
+EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_GuildBank", EVENT_GUILD_BANK_ITEMS_READY,       ScanGuildBank)
+EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_GBAdd",     EVENT_GUILD_BANK_ITEM_ADDED,        OnGuildBankChanged)
+EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_GBRemove",  EVENT_GUILD_BANK_ITEM_REMOVED,      OnGuildBankChanged)
+EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_GBQty",     EVENT_GUILD_BANK_UPDATED_QUANTITY,  OnGuildBankChanged)
 EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Ach",       EVENT_ACHIEVEMENT_AWARDED,          OnAchievementAwarded)
 if EVENT_ACHIEVEMENTS_UPDATED then
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_AchUpd", EVENT_ACHIEVEMENTS_UPDATED, ScanAchievements)

@@ -4,6 +4,16 @@ All notable changes to iasync will be documented here.
 
 ## [Unreleased]
 
+## [1.8.0] — 2026-11-18
+
+### Fixed
+
+- Guild banks are stored under the guild whose bank is open (`GetSelectedGuildBankId`), not always the first guild
+- Guild banks are scanned when their items have loaded (`EVENT_GUILD_BANK_ITEMS_READY`, also after switching guilds), not when the window opens, so the scan is no longer empty or partial
+- Every item is captured: guild bank slots are walked with `ZO_GetNextBagSlotIndex` instead of `0..GetBagSize-1`
+- Deposits and withdrawals update the right guild bank (rescanned after `EVENT_GUILD_BANK_ITEM_ADDED`/`_REMOVED`/`_UPDATED_QUANTITY`)
+- Guild bank data saved by older versions is cleared once, since it was filed under the wrong guild
+
 ## [1.7.0] — 2026-11-18
 
 ### Added

@@ -29,7 +29,7 @@ iasync is read-only. It never changes your inventory, builds or any other game s
 
 1. Copy the `iasync` folder into `Documents\Elder Scrolls Online\live\AddOns\`.
 2. Start ESO and enable **iasync** in the AddOns menu.
-3. Log in to each character you want exported. Bank and guild bank contents are captured when you open them, and house chests when you enter a house.
+3. Log in to each character you want exported. Bank contents are captured when you open it, each guild bank when you view it, and house chests when you enter a house.
 
 ## Usage
 
@@ -53,7 +53,7 @@ To rescan the current character without reloading, run this in chat:
 |---|---|
 | Login, `/reloadui`, zone change | Character bags, build, currencies (after 2 s), house chests if in a house (3 s), achievements (5 s), set collections (7 s) |
 | Opening the bank | Bank, ESO Plus bank, craft bag, bank currencies |
-| Opening a guild bank | Guild bank contents |
+| Viewing a guild bank (and depositing or withdrawing) | That guild's bank contents |
 | Any inventory change | The changed slot, in real time |
 | Earning an achievement | That achievement, in real time |
 
@@ -155,7 +155,7 @@ Lua tables with integer keys (bag IDs, slot IDs, set IDs) become string keys whe
 
 ## Known limitations
 
-- **Guild banks**: ESO does not expose which guild's bank is open, so guild bank data is stored under the first guild found.
+- **Guild banks**: each guild bank is captured only after you view it, and only if you have permission to see its contents.
 - **Ability names**: names are resolved only for the logged-in character, because `GetAbilityName` cannot resolve another class's abilities.
 - **Achievement attribution**: the character who earned an account-wide achievement is reported only when ESO can resolve it.
 
