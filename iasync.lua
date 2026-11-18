@@ -1097,13 +1097,13 @@ local function ScanActivities()
                 endTime     = call(GetTimedActivityEndTimeS, i),  -- unix seconds
                 currencyType = cType,   -- reward, e.g. Seals of Endeavor or Tome Points
                 currencyQty  = cQty,
+                timesClaimed   = call(GetTimedActivityNumTimesClaimed, i),
+                timesClaimable = call(GetTimedActivityTotalNumTimesClaimable, i),
             }
         end
         for aType, name in pairs(typeNames) do
             limits[name] = {
-                limit     = call(GetTimedActivityTypeLimit, aType),
-                completed = call(GetNumTimedActivitiesCompleted, aType),
-                resetTime = call(GetTimedActivityTypeResetTimeS, aType),  -- unix seconds
+                resetTime = call(GetTimedActivityTypeResetTimeS, aType),  -- unix seconds; per-type limit/completed counts were removed in 101051
             }
         end
     end
@@ -1160,11 +1160,27 @@ local function ScanActivities()
     -- Tamriel Tome season pass: level, points and the reward track (free and premium components).
     local tome
     local TOMES = REWARD_TRACK_TYPE_TAMRIEL_TOMES
-    if TOMES and GetInfoForRewardTrack and (not IsTamrielTomesEnabled or call(IsTamrielTomesEnabled)) then
-        local refId = call(GetActiveReferenceTrackIdsForRewardTrackType, TOMES)
-        local refIdx = refId and call(GetReferenceTrackIndex, TOMES, refId)
-        local trackId, currentTier, progressToNext = call(GetInfoForRewardTrack, TOMES, refIdx or 1)
-        if trackId and trackId > 0 then
+    local tomesEnabled = TOMES and GetInfoForRewardTrack and (not IsTamrielTomesEnabled or call(IsTamrielTomesEnabled))
+    if not tomesEnabled then d("[iasync] Tome: Tamriel Tomes unavailable") end
+    if tomesEnabled then
+        -- Prefer the active reference track; otherwise take the first one with a real track.
+        local refIdx, trackId, currentTier, progressToNext
+        local activeRef = call(GetActiveReferenceTrackIdsForRewardTrackType, TOMES)
+        local candidates = {}
+        if activeRef then candidates[1] = call(GetReferenceTrackIndex, TOMES, activeRef) end
+        for i = 1, call(GetNumReferenceTracksForType, TOMES) or 0 do candidates[#candidates + 1] = i end
+        for _, idx in ipairs(candidates) do
+            local tId, tier, prog = call(GetInfoForRewardTrack, TOMES, idx)
+            if tId and tId > 0 then
+                refIdx, trackId, currentTier, progressToNext = idx, tId, tier, prog
+                break
+            end
+        end
+        if not trackId then
+            d(string.format("[iasync] Tome: no reward track (activeRef=%s, numRefs=%s)",
+                tostring(activeRef), tostring(call(GetNumReferenceTracksForType, TOMES))))
+        end
+        if trackId then
             local tomeId = call(GetActiveTamrielTomeSeasonDefId)
             local components = {
                 { key = "primary",   value = REWARD_TRACK_COMPONENT_PRIMARY },
@@ -1178,6 +1194,7 @@ local function ScanActivities()
                 end)
                 if ok then return name, icon end
             end
+            d(string.format("[iasync] Tome: track %d, level %d", trackId, currentTier or 0))
             tome = {
                 id             = tomeId,
                 name           = call(GetRewardTrackDisplayName, trackId) or "",
@@ -1191,7 +1208,7 @@ local function ScanActivities()
                 tiers          = {},
             }
             for _, comp in ipairs(components) do
-                if comp.value then tome.access[comp.key] = call(HasAccessToRewardTrackComponent, TOMES, refIdx or 1, comp.value) and true or false end
+                if comp.value then tome.access[comp.key] = call(HasAccessToRewardTrackComponent, TOMES, refIdx, comp.value) and true or false end
             end
             for tier = 1, call(GetTotalNumTiersForRewardTrack, trackId) or 0 do
                 local entry = { totalProgress = call(GetTotalProgressAtRewardTrackTier, trackId, tier) or 0 }
@@ -1207,7 +1224,7 @@ local function ScanActivities()
                                 quality  = quality,
                                 name     = name,
                                 icon     = icon,
-                                claimed  = call(GetRewardTrackRewardClaimedState, TOMES, refIdx or 1, tier, comp.value, r) and true or false,
+                                claimed  = call(GetRewardTrackRewardClaimedState, TOMES, refIdx, tier, comp.value, r) and true or false,
                             }
                         end
                         entry[comp.key] = rewards

@@ -160,9 +160,9 @@ iasync_data = {
   },
   activities = {  -- account-wide snapshot at scan time; times are unix seconds
     timed = {  -- Endeavors and Tamriel Tome seasonal challenges
-      [i] = { id, name, description, type, difficulty, progress, maxProgress, endTime, currencyType, currencyQty },  -- type: "daily", "weekly" or "seasonal"
+      [i] = { id, name, description, type, difficulty, progress, maxProgress, endTime, currencyType, currencyQty, timesClaimed, timesClaimable },  -- type: "daily", "weekly" or "seasonal"
     },
-    limits = { daily = { limit, completed, resetTime }, weekly = { ... }, seasonal = { ... } },
+    limits = { daily = { resetTime }, weekly = { resetTime }, seasonal = { resetTime } },
     campaigns = {  -- Golden Pursuits
       [i] = {
         id, name, description, numCompleted, capstoneThreshold, capstoneClaimed, endTime,
