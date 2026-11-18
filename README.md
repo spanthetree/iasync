@@ -79,6 +79,7 @@ iasync_data = {
                                       enchantName,        -- display string; enchant ID is not captured
                                       setId, setName,
                                       quality, filterType,
+                                      icon,               -- the item's own icon (/esoui/art/icons/...dds)
                                       armorType,          -- "Light"/"Medium"/"Heavy"; nil for non-armor
                                       weaponType,         -- e.g. "Sword", "Inferno Staff"; nil for non-weapons
                                     } } },

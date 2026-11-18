@@ -107,8 +107,13 @@ local function CaptureSlot(bagId, slot)
 
     local quality    = _qualityFn(bagId, slot)
     local filterType = GetItemFilterTypeInfo(bagId, slot)
-    -- select(2, ...) = stackCount; works for all bag types including BAG_VIRTUAL.
-    local qty = select(2, GetItemInfo(bagId, slot)) or 1
+    -- GetItemInfo r1 = icon, r2 = stackCount; works for all bag types including BAG_VIRTUAL.
+    local okInfo, icon, stack = pcall(GetItemInfo, bagId, slot)
+    local qty = (okInfo and stack) or 1
+    if not (okInfo and icon and icon ~= "") then
+        local okIcon, linkIcon = pcall(GetItemLinkIcon, link)
+        icon = (okIcon and linkIcon ~= "" and linkIcon) or nil
+    end
 
     local armorType  = ARMOR_TYPE_NAMES[GetItemLinkArmorType(link)]
     local weaponType = WEAPON_TYPE_NAMES[GetItemLinkWeaponType(link)]
@@ -125,6 +130,7 @@ local function CaptureSlot(bagId, slot)
         quality     = quality,
         filterType  = filterType,
         qty         = qty,
+        icon        = icon,
         armorType   = armorType,
         weaponType  = weaponType,
     }
