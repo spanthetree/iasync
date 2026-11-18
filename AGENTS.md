@@ -83,6 +83,12 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
 | `GetItemSetCollectionPieceItemLink(pieceId, linkStyle, traitType)` | Returns an item link string. Use `LINK_STYLE_DEFAULT or 1` and `ITEM_TRAIT_TYPE_NONE or 0`. Must be `pcall`'d. |
 | `GetEquipmentFilterTypeForItemSetCollectionSlot(slot)` | Returns an armor/weapon type integer — **NOT** an `ITEM_FILTER_TYPE_*` value despite the name. Unreliable for display; use piece names from `GetItemLinkName` instead. |
 | `GetItemLinkName(link)` | Extracts display name from an item link (e.g. "Abyssal Brace Helm"). Must be `pcall`'d. |
+| `GetNumCollectibleCategories()` | Top-level Collections categories. Houses, outfit styles and Tales of Tribute patrons are collectibles too |
+| `GetCollectibleCategoryInfo(topIdx)` | `(name, numSubCategories, numCollectibles, unlocked, total, hidesLocked)`. `numCollectibles` counts only items directly under the top level |
+| `GetCollectibleSubCategoryInfo(topIdx, subIdx)` | `(name, numCollectibles, unlocked, total)` |
+| `GetCollectibleId(topIdx, subIdx, idx)` | `subIdx` may be `nil` for items directly under the top level |
+| `GetCollectibleInfo(id)` | `(name, description, icon, lockedIcon, unlocked, purchasable, isActive, categoryType, hint)` |
+| `GetCollectibleCategorySpecialization(topIdx)` | `COLLECTIBLE_CATEGORY_SPECIALIZATION_*`: which in-game Collections tab the category belongs to |
 
 ## Data structure invariants
 
@@ -120,6 +126,7 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
   ```
   The `sets` table is keyed by numeric setId but serialises to JSON with string keys. `data_processor.py` reads this via `process_iasync_stickerbook(raw)` and serves it at `GET /api/stickerbook`.
 
+- **`iasync_data.collectibles` is account-wide.** `items` is keyed by collectibleId (string keys in JSON); each item's `cat`/`sub` index into `categories[cat].subcats[sub]` (`sub = 0` means directly under the top level). Use `categories[i].specialization` to split the Collections tabs (housing, outfit styles, Tales of Tribute). Not read by eso-armory yet.
 - **`build_mundus` is `nil` when no stone is active**, not an empty table. When stones are active it is a Lua sequential table (e.g. `{ "The Lady" }`), which serialises to JSON as `{"1": "The Lady"}`. `data_processor.py` handles both dict and list forms via `list(build_mundus.values()) if isinstance(..., dict) else list(...)`.
 - **House data is keyed by house ID (from `GetCurrentZoneHouseId`) as a string**, e.g. `"66"`. Only houses the player owns are scanned (`IsOwnerOfCurrentHouse`). House storage bags are account-wide, so every owned house holds the same `chests`; consumers must count each chest bag ID once. The same house ID is used across sessions and characters.
 - **Achievement entries now keep line-chain and attribution metadata.** Store `lineBaseId`, `linePreviousId`, `lineNextId`, `completedByCharId`, and `completedByCharName` with the existing achievement payload so the web app can group lines and show who earned a completion.
@@ -132,6 +139,7 @@ EVENT_PLAYER_ACTIVATED    → OnPlayerActivated  (fires on login, /reloadui, and
     └─ zo_callLater 2 s   → ScanCharacterBags + ResolveBuildNames
     └─ zo_callLater 3 s   → ScanHouseChests (no-op if not in a house)
     └─ zo_callLater 7 s   → ScanStickerbook (account-wide; 7 s gives ITEM_SET_COLLECTIONS_DATA_MANAGER time to populate)
+    └─ zo_callLater 9 s   → ScanCollectibles (account-wide)
 EVENT_ACHIEVEMENTS_UPDATED → ScanAchievements (refresh achievement state when ESO rebuilds it mid-session)
 EVENT_ACHIEVEMENT_AWARDED → OnAchievementAwarded (args: eventCode, name, points, achievementId, link)
 EVENT_OPEN_BANK           → ScanBankBags
