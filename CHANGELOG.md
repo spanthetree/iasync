@@ -9,6 +9,7 @@ All notable changes to iasync will be documented here.
 ### Fixed
 
 - House names (`houses[id].name`) are the house's name, via `GetCollectibleIdForHouse`. Before, the house ID was passed to `GetCollectibleName` as if it were a collectible ID, giving unrelated names such as "Covenant Scout". Re-enter each house to refresh its name
+- House chests are scanned only in houses you own (`IsOwnerOfCurrentHouse`). Visiting another player's house used to save it with empty chests; those entries are removed once on load
 
 ## [1.8.0] — 2026-11-18
 

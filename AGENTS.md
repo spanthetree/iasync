@@ -121,7 +121,7 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
   The `sets` table is keyed by numeric setId but serialises to JSON with string keys. `data_processor.py` reads this via `process_iasync_stickerbook(raw)` and serves it at `GET /api/stickerbook`.
 
 - **`build_mundus` is `nil` when no stone is active**, not an empty table. When stones are active it is a Lua sequential table (e.g. `{ "The Lady" }`), which serialises to JSON as `{"1": "The Lady"}`. `data_processor.py` handles both dict and list forms via `list(build_mundus.values()) if isinstance(..., dict) else list(...)`.
-- **House data is keyed by house ID (from `GetCurrentZoneHouseId`) as a string**, e.g. `"66"`. The same house ID is used across sessions and characters.
+- **House data is keyed by house ID (from `GetCurrentZoneHouseId`) as a string**, e.g. `"66"`. Only houses the player owns are scanned (`IsOwnerOfCurrentHouse`). House storage bags are account-wide, so every owned house holds the same `chests`; consumers must count each chest bag ID once. The same house ID is used across sessions and characters.
 - **Achievement entries now keep line-chain and attribution metadata.** Store `lineBaseId`, `linePreviousId`, `lineNextId`, `completedByCharId`, and `completedByCharName` with the existing achievement payload so the web app can group lines and show who earned a completion.
 
 ## Event flow

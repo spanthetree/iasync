@@ -509,6 +509,8 @@ end
 local function ScanHouseChests()
     local houseKey, houseName = GetHouseKey()
     if houseKey == "0" then return end
+    -- Storage chests only open in your own houses; elsewhere the scan would save empty chests.
+    if IsOwnerOfCurrentHouse and not IsOwnerOfCurrentHouse() then return end
     iasync_data.houses[houseKey] = iasync_data.houses[houseKey] or {}
     local houseData = iasync_data.houses[houseKey]
     houseData.name   = houseName
@@ -999,6 +1001,17 @@ local function OnAddonLoaded(_, addonName)
         iasync_data.guildBankFormat = 2
     end
     iasync_data.houses       = iasync_data.houses       or {}
+    -- Before 1.8.1 visiting another player's house saved it with empty chests; drop entries holding no items.
+    if (iasync_data.houseFormat or 1) < 2 then
+        for key, house in pairs(iasync_data.houses) do
+            local hasItems = false
+            for _, chest in pairs(house.chests or {}) do
+                if next(chest.slots or {}) then hasItems = true end
+            end
+            if not hasItems then iasync_data.houses[key] = nil end
+        end
+        iasync_data.houseFormat = 2
+    end
     iasync_data.abilityNames = iasync_data.abilityNames or {}
     iasync_data.cpNames      = iasync_data.cpNames      or {}
     iasync_data.achievements = iasync_data.achievements or { account = {} }

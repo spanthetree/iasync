@@ -107,7 +107,7 @@ iasync_data = {
   guildBanks = {
     ["<GuildName>"] = { slots = { [slot] = slotData }, lastUpdate }
   },
-  houses = {
+  houses = {  -- owned houses only; storage chests are account-wide, so each house holds the same chests
     ["<houseId>"] = {
       name,
       chests = {
