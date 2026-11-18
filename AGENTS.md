@@ -43,7 +43,8 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
 | `GetUnitName/Race/Class/Alliance("player")` | Character identity |
 | `GetUnitGender("player")` | `GENDER_FEMALE` / `GENDER_MALE` / `GENDER_NEUTER`; stored as `"female"` or `"male"` |
 | `GetCurrentZoneHouseId()` | Non-zero when inside a house; used to key house data |
-| `GetCollectibleName(id)` | Resolves house collectible ID to display name |
+| `GetCollectibleIdForHouse(houseId)` | House ID (from `GetCurrentZoneHouseId`) to its collectible ID. A house ID is **not** a collectible ID |
+| `GetCollectibleName(id)` | Resolves a collectible ID (e.g. from `GetCollectibleIdForHouse`) to display name |
 | `zo_callLater(fn, ms)` | Deferred execution; used for house chest scan (3 000 ms) |
 | `GetNumAchievementCategories()` | Total number of top-level achievement categories (confirmed: returns 47) |
 | `GetAchievementCategoryInfo(categoryIndex)` | Takes a **1-based index**, not an ID. Returns `(name, numSubCategories, numAchievements, earnedPts, totalPts, hidesPoints)`. r4/r5 are confirmed to match the in-game summary UI (e.g. CHARACTER: 3120/5325). **`GetAchievementCategoryId` does not exist** — confirmed nil at runtime. |
@@ -120,7 +121,7 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
   The `sets` table is keyed by numeric setId but serialises to JSON with string keys. `data_processor.py` reads this via `process_iasync_stickerbook(raw)` and serves it at `GET /api/stickerbook`.
 
 - **`build_mundus` is `nil` when no stone is active**, not an empty table. When stones are active it is a Lua sequential table (e.g. `{ "The Lady" }`), which serialises to JSON as `{"1": "The Lady"}`. `data_processor.py` handles both dict and list forms via `list(build_mundus.values()) if isinstance(..., dict) else list(...)`.
-- **House data is keyed by house collectible ID as a string**, e.g. `"738"`. The same house ID is used across sessions and characters.
+- **House data is keyed by house ID (from `GetCurrentZoneHouseId`) as a string**, e.g. `"66"`. Only houses the player owns are scanned (`IsOwnerOfCurrentHouse`). House storage bags are account-wide, so every owned house holds the same `chests`; consumers must count each chest bag ID once. The same house ID is used across sessions and characters.
 - **Achievement entries now keep line-chain and attribution metadata.** Store `lineBaseId`, `linePreviousId`, `lineNextId`, `completedByCharId`, and `completedByCharName` with the existing achievement payload so the web app can group lines and show who earned a completion.
 
 ## Event flow
