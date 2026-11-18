@@ -4,6 +4,12 @@ All notable changes to iasync will be documented here.
 
 ## [Unreleased]
 
+## [1.13.0] — 2026-11-18
+
+### Added
+
+- Item icons (`icon` on every captured slot) from `GetItemInfo`, falling back to `GetItemLinkIcon`, in character bags, bank, craft bag, house chests and guild banks
+
 ## [1.12.0] — 2026-11-18
 
 ### Added

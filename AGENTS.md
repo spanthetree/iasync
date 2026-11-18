@@ -27,7 +27,7 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
 | `GetItemLinkEnchantInfo(link)` | `(hasEnchant, enchantName)` |
 | `GetItemLinkSetInfo(link)` | `(hasSet, name, bonuses, equipped, max, id)` |
 | `GetItemFilterTypeInfo(bagId, slot)` | First return = filter type integer |
-| `GetItemInfo(bagId, slot)` | Second return = stack count (works on all bag types) |
+| `GetItemInfo(bagId, slot)` | First return = icon path, second = stack count (works on all bag types) |
 | `GetBagSize(bagId)` | Slot count; returns 0 for bags that are absent or inaccessible |
 | `GetNextVirtualBagSlotId(prev)` | Craft bag iterator; pass `nil` for the first slot |
 | `GetSlotBoundId(slot, hotbarCategory)` | Ability ID bound to a skill bar slot (slots 3–7 = skills, slot 8 = ultimate) |
