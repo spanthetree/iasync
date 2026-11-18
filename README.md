@@ -177,7 +177,7 @@ iasync_data = {
     lastUpdate,
   },
   currencies = {  -- keyed by CURT_* suffix; account = account-held amount, bank = banked amount of a character-held currency
-    ["SEALS"] = { name, account }, ["MONEY"] = { name, bank }, ...
+    ["SEALS"] = { name, icon, account }, ["MONEY"] = { name, icon, bank }, ...  -- icon from GetCurrencyKeyboardIcon
   },
   antiquities = {
     items = { [antiquityId] = { name, icon, quality, setId, zoneId, repeatable, numRecovered, loreAcquired, loreTotal, hasLead, leadExpires } },

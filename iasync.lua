@@ -1303,6 +1303,7 @@ local function ScanCharacterDetails()
             local location = call(GetCurrencyPlayerStoredLocation, curt)
             local entry = iasync_data.currencies[key] or {}
             entry.name = call(GetCurrencyName, curt, false, false) or key
+            entry.icon = call(GetCurrencyKeyboardIcon, curt)  -- /esoui/art/... path
             if location == CURRENCY_LOCATION_ACCOUNT then
                 entry.account = call(GetCurrencyAmount, curt, CURRENCY_LOCATION_ACCOUNT)
             else
