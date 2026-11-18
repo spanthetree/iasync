@@ -106,6 +106,8 @@ iasync_data = {
       build_cp = { earned = N, slots = { [slot] = abilityId } },
       abilityNames = { [abilityId] = "Name" },
       cpNames      = { [abilityId] = "Name" },
+      cpDescriptions = { [championSkillId] = "Description" },  -- slotted stars, from GetChampionSkillDescription at current points
+      mundusDescriptions = { ["Stone Name"] = "Description" }, -- keyed as in build_mundus, from GetAbilityDescription of the boon buff
       achievements = {
         [achId] = {
           name, desc, points, icon, complete, cat, subcat,

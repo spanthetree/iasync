@@ -9,6 +9,7 @@ All notable changes to iasync will be documented here.
 ### Added
 
 - Currency icons (`currencies[KEY].icon`) from `GetCurrencyKeyboardIcon`, for every currency including character-held ones
+- Mundus stone and slotted Champion Point descriptions (`chars[id].mundusDescriptions`, `chars[id].cpDescriptions`), for tooltips
 
 ## [1.11.0] — 2026-11-18
 
