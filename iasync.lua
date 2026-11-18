@@ -387,20 +387,25 @@ local function ScanBuild(c)
     -- Mundus stone (boon): permanent buff whose icon path contains "mundus".
     -- ESO prefixes the buff name with "Boon: "; strip it for clean storage.
     -- A player with the Steed of the North set may have two active stones.
-    local mundusStones = {}
+    local mundusStones, mundusDescriptions = {}, {}
     if GetNumBuffs then
         local ok, numBuffs = pcall(GetNumBuffs, "player")
         if ok and numBuffs then
             for i = 1, numBuffs do
-                local ok2, bName, _, _, _, _, bIcon = pcall(GetUnitBuffInfo, "player", i)
+                local ok2, bName, _, _, _, _, bIcon, _, _, _, _, bAbilityId = pcall(GetUnitBuffInfo, "player", i)
                 if ok2 and bIcon and bIcon ~= "" and bIcon:lower():find("mundus") then
                     local stoneName = bName:gsub("^Boon:%s*", "")
                     mundusStones[#mundusStones + 1] = stoneName
+                    if bAbilityId and bAbilityId > 0 then
+                        local ok3, desc = pcall(GetAbilityDescription, bAbilityId)
+                        if ok3 and desc and desc ~= "" then mundusDescriptions[stoneName] = desc end
+                    end
                 end
             end
         end
     end
     c.build_mundus = (#mundusStones > 0) and mundusStones or nil
+    c.mundusDescriptions = mundusDescriptions  -- keyed by the name stored in build_mundus
 
     local cpEarned = 0
     local ok0, pts = pcall(GetPlayerChampionPointsEarned)
@@ -597,7 +602,7 @@ local function ResolveBuildNames()
     local c = iasync_data.chars[charId]
     if not c then return end
 
-    local abilityNames, cpNames = {}, {}
+    local abilityNames, cpNames, cpDescriptions = {}, {}, {}
     local abilityCount, cpCount = 0, 0
 
     local bars = c.build_bars or {}
@@ -624,11 +629,15 @@ local function ResolveBuildNames()
                 cpNames[id] = name
                 cpCount = cpCount + 1
             end
+            local okPts, points = pcall(GetNumPointsSpentOnChampionSkill, id)
+            local okDesc, desc = pcall(GetChampionSkillDescription, id, okPts and points or 0)
+            if okDesc and desc and desc ~= "" then cpDescriptions[id] = desc end
         end
     end
 
     c.abilityNames = abilityNames
     c.cpNames      = cpNames
+    c.cpDescriptions = cpDescriptions  -- slotted stars, at their current points
     iasync_data.lastUpdate = GetTimeStamp()
     d(string.format("[iasync] %d abilities · %d CP stars resolved", abilityCount, cpCount))
 end
@@ -1303,6 +1312,7 @@ local function ScanCharacterDetails()
             local location = call(GetCurrencyPlayerStoredLocation, curt)
             local entry = iasync_data.currencies[key] or {}
             entry.name = call(GetCurrencyName, curt, false, false) or key
+            entry.icon = call(GetCurrencyKeyboardIcon, curt)  -- /esoui/art/... path
             if location == CURRENCY_LOCATION_ACCOUNT then
                 entry.account = call(GetCurrencyAmount, curt, CURRENCY_LOCATION_ACCOUNT)
             else

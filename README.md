@@ -106,6 +106,8 @@ iasync_data = {
       build_cp = { earned = N, slots = { [slot] = abilityId } },
       abilityNames = { [abilityId] = "Name" },
       cpNames      = { [abilityId] = "Name" },
+      cpDescriptions = { [championSkillId] = "Description" },  -- slotted stars, from GetChampionSkillDescription at current points
+      mundusDescriptions = { ["Stone Name"] = "Description" }, -- keyed as in build_mundus, from GetAbilityDescription of the boon buff
       achievements = {
         [achId] = {
           name, desc, points, icon, complete, cat, subcat,
@@ -177,7 +179,7 @@ iasync_data = {
     lastUpdate,
   },
   currencies = {  -- keyed by CURT_* suffix; account = account-held amount, bank = banked amount of a character-held currency
-    ["SEALS"] = { name, account }, ["MONEY"] = { name, bank }, ...
+    ["SEALS"] = { name, icon, account }, ["MONEY"] = { name, icon, bank }, ...  -- icon from GetCurrencyKeyboardIcon
   },
   antiquities = {
     items = { [antiquityId] = { name, icon, quality, setId, zoneId, repeatable, numRecovered, loreAcquired, loreTotal, hasLead, leadExpires } },
