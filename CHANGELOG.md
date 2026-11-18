@@ -4,6 +4,12 @@ All notable changes to iasync will be documented here.
 
 ## [Unreleased]
 
+## [1.8.1] — 2026-11-18
+
+### Fixed
+
+- House names (`houses[id].name`) are the house's name, via `GetCollectibleIdForHouse`. Before, the house ID was passed to `GetCollectibleName` as if it were a collectible ID, giving unrelated names such as "Covenant Scout". Re-enter each house to refresh its name
+
 ## [1.8.0] — 2026-11-18
 
 ### Fixed

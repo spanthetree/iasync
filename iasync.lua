@@ -490,11 +490,16 @@ end
 -- ── House chests (when entering a house) ─────────────────────────────────────
 
 local function GetHouseKey()
-    -- GetCurrentZoneHouseId returns the house collectible ID, used as the storage key.
+    -- GetCurrentZoneHouseId returns the house ID (the storage key); its name comes from the house's collectible.
     if GetCurrentZoneHouseId then
         local houseId = GetCurrentZoneHouseId()
         if houseId and houseId > 0 then
-            local name = GetCollectibleName and GetCollectibleName(houseId) or ("House " .. houseId)
+            local name = "House " .. houseId
+            local ok, cId = pcall(GetCollectibleIdForHouse, houseId)
+            if ok and cId and cId > 0 then
+                local okName, cName = pcall(GetCollectibleName, cId)
+                if okName and cName and cName ~= "" then name = cName end
+            end
             return tostring(houseId), name
         end
     end
