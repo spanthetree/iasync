@@ -4,6 +4,17 @@ All notable changes to iasync will be documented here.
 
 ## [Unreleased]
 
+## [1.15.0] — 2026-11-18
+
+### Added
+
+- Per-character ability icon paths from `GetAbilityIcon`, keyed by ability ID, for ESO Armory 0.2.0-beta.9.
+- Name and icon resolution for the logged-in character's saved Wizards Wardrobe skills, including skills absent from equipped bars.
+
+### Fixed
+
+- Retain previously resolved ability names and icons when bars change or an API lookup returns empty or fails.
+
 ## [1.14.0] — 2026-11-18
 
 ### Added
