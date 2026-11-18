@@ -4,6 +4,12 @@ All notable changes to iasync will be documented here.
 
 ## [Unreleased]
 
+## [1.14.0] — 2026-11-18
+
+### Added
+
+- Every champion star's name and description, account-wide (top-level `cpNames`, `cpDescriptions`, described at max points), so builds can name stars no scanned character has slotted
+
 ## [1.13.0] — 2026-11-18
 
 ### Added

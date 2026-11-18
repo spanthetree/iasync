@@ -212,7 +212,8 @@ iasync_data = {
     xpStart, xpEnd,
   },
   abilityNames = {},   -- legacy; kept for backwards compat, not actively written
-  cpNames      = {},   -- legacy; kept for backwards compat, not actively written
+  cpNames        = { [championSkillId] = "Name" },         -- every champion star, account-wide
+  cpDescriptions = { [championSkillId] = "Description" },  -- every champion star, at max points
 }
 ```
 
