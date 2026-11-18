@@ -1244,6 +1244,213 @@ local function ScanActivities()
     }
 end
 
+-- ── Character details, currencies and crafting knowledge (per character) ───
+
+local CURRENCY_KEYS = {
+    "MONEY", "ALLIANCE_POINTS", "TELVAR_STONES", "WRIT_VOUCHERS", "TRANSMUTE_CRYSTALS", "SEALS",
+    "UNDAUNTED_KEYS", "UNDAUNTED_CRESTS", "ARCHIVAL_FORTUNES", "IMPERIAL_FRAGMENTS", "STYLE_STONES",
+    "TOME_POINTS", "TOME_POINT_CACHES", "TOME_TOKENS", "TOME_CHALLENGE_REROLLS", "TRADE_BARS",
+    "CROWNS", "CROWN_GEMS",
+}
+
+local RESEARCH_CRAFTS = {
+    { key = "blacksmithing",   value = CRAFTING_TYPE_BLACKSMITHING },
+    { key = "clothier",        value = CRAFTING_TYPE_CLOTHIER },
+    { key = "woodworking",     value = CRAFTING_TYPE_WOODWORKING },
+    { key = "jewelrycrafting", value = CRAFTING_TYPE_JEWELRYCRAFTING },
+}
+
+-- ITEM_STYLE_CHAPTER_* values, one per motif chapter (ALL is excluded).
+local MOTIF_CHAPTERS = {
+    "AXES", "BELTS", "BOOTS", "BOWS", "CHESTS", "DAGGERS", "GLOVES", "HELMETS",
+    "LEGS", "MACES", "SHIELDS", "SHOULDERS", "STAVES", "SWORDS",
+}
+
+local function ScanCharacterDetails()
+    local charId = tostring(GetCurrentCharacterId())
+    local c = iasync_data.chars[charId]
+    if not c then return end
+    local now = GetTimeStamp()
+
+    -- Basics
+    c.level         = call(GetUnitLevel, "player") or 0
+    c.championPoints = call(GetUnitChampionPoints, "player") or 0
+    c.title         = call(GetUnitTitle, "player") or ""
+    local zoneIndex = call(GetUnitZoneIndex, "player")
+    c.zoneId        = zoneIndex and call(GetZoneId, zoneIndex) or nil
+    c.zone          = call(GetUnitZone, "player") or ""
+    local inv, invMax, sta, staMax, spd, spdMax = call(GetRidingStats)
+    c.riding = { inventory = inv, inventoryMax = invMax, stamina = sta, staminaMax = staMax, speed = spd, speedMax = spdMax }
+    local avaRank = call(GetUnitAvARank, "player")
+    c.avaRank     = avaRank
+    c.avaRankName = avaRank and call(GetAvARankName, GetUnitGender("player"), avaRank) or nil
+
+    c.guilds = {}
+    for i = 1, call(GetNumGuilds) or 0 do
+        local guildId = call(GetGuildId, i)
+        if guildId then
+            local memberIndex = call(GetPlayerGuildMemberIndex, guildId)
+            local rankIndex = memberIndex and select(3, call(GetGuildMemberInfo, guildId, memberIndex)) or nil
+            c.guilds[i] = {
+                name      = call(GetGuildName, guildId) or "",
+                rankIndex = rankIndex,
+                rankName  = rankIndex and call(GetGuildRankCustomName, guildId, rankIndex) or nil,
+            }
+        end
+    end
+
+    -- Currencies: character-held ones per character; account-held and banked ones account-wide.
+    c.currencies = {}
+    iasync_data.currencies = iasync_data.currencies or {}
+    for _, key in ipairs(CURRENCY_KEYS) do
+        local curt = _G["CURT_" .. key]
+        if curt and (not IsCurrencyValid or call(IsCurrencyValid, curt)) then
+            local location = call(GetCurrencyPlayerStoredLocation, curt)
+            local entry = iasync_data.currencies[key] or {}
+            entry.name = call(GetCurrencyName, curt, false, false) or key
+            if location == CURRENCY_LOCATION_ACCOUNT then
+                entry.account = call(GetCurrencyAmount, curt, CURRENCY_LOCATION_ACCOUNT)
+            else
+                c.currencies[key] = call(GetCurrencyAmount, curt, CURRENCY_LOCATION_CHARACTER)
+                entry.bank = call(GetCurrencyAmount, curt, CURRENCY_LOCATION_BANK)
+            end
+            iasync_data.currencies[key] = entry
+        end
+    end
+
+    -- Trait research
+    c.research = {}
+    for _, craft in ipairs(RESEARCH_CRAFTS) do
+        if craft.value then
+            local lines = {}
+            for line = 1, call(GetNumSmithingResearchLines, craft.value) or 0 do
+                local name, icon, numTraits = call(GetSmithingResearchLineInfo, craft.value, line)
+                local entry = { name = name or "", icon = icon, numTraits = numTraits or 0, known = {}, researching = {} }
+                for t = 1, numTraits or 0 do
+                    local traitType, _, known = call(GetSmithingResearchLineTraitInfo, craft.value, line, t)
+                    if known then
+                        entry.known[#entry.known + 1] = traitType
+                    else
+                        local _, remaining = call(GetSmithingResearchLineTraitTimes, craft.value, line, t)
+                        if remaining and remaining > 0 then
+                            entry.researching[#entry.researching + 1] = { traitType = traitType, endTime = now + remaining }
+                        end
+                    end
+                end
+                lines[line] = entry
+            end
+            c.research[craft.key] = lines
+        end
+    end
+
+    -- Motifs: chapters known per style. Styles with no chapter known are left out.
+    c.motifs = {}
+    for i = 1, call(GetNumValidItemStyles) or 0 do
+        local styleId = call(GetValidItemStyleId, i)
+        if styleId and styleId > 0 then
+            local known, total = {}, 0
+            for _, chapter in ipairs(MOTIF_CHAPTERS) do
+                local value = _G["ITEM_STYLE_CHAPTER_" .. chapter]
+                if value then
+                    total = total + 1
+                    if call(IsSmithingStyleKnown, styleId, value) then known[#known + 1] = chapter:lower() end
+                end
+            end
+            if #known > 0 then
+                c.motifs[styleId] = { name = call(GetItemStyleName, styleId) or "", known = known, numChapters = total }
+            end
+        end
+    end
+
+    -- Recipes: known recipe names per recipe list.
+    c.recipes = {}
+    for list = 1, call(GetNumRecipeLists) or 0 do
+        local listName, numRecipes = call(GetRecipeListInfo, list)
+        local known = {}
+        for r = 1, numRecipes or 0 do
+            local isKnown, name = call(GetRecipeInfo, list, r)
+            if isKnown and name and name ~= "" then known[#known + 1] = name end
+        end
+        c.recipes[list] = { name = listName or "", total = numRecipes or 0, known = known }
+    end
+end
+
+-- ── Scribing and antiquities (account-wide) ─────────────────────────────────
+
+local function ScanScribing()
+    if not GetNumCraftedAbilities or (IsScribingEnabled and not call(IsScribingEnabled)) then return end
+    local slots = {
+        { key = "primary",   value = SCRIBING_SLOT_PRIMARY },
+        { key = "secondary", value = SCRIBING_SLOT_SECONDARY },
+        { key = "tertiary",  value = SCRIBING_SLOT_TERTIARY },
+    }
+    local grimoires, scripts = {}, {}
+    for i = 1, call(GetNumCraftedAbilities) or 0 do
+        local craftedId = call(GetCraftedAbilityIdAtIndex, i)
+        if craftedId then
+            local abilityId = call(GetAbilityIdForCraftedAbilityId, craftedId)
+            local g = {
+                name     = abilityId and call(GetAbilityName, abilityId) or "",
+                icon     = abilityId and call(GetAbilityIcon, abilityId) or nil,
+                abilityId = abilityId,
+                unlocked = call(IsCraftedAbilityUnlocked, craftedId) and true or false,
+                scribed  = call(IsCraftedAbilityScribed, craftedId) and true or false,
+                scripts  = {},
+            }
+            for _, slot in ipairs(slots) do
+                if slot.value then
+                    local ids = {}
+                    for s = 1, call(GetNumScriptsInSlotForCraftedAbility, craftedId, slot.value) or 0 do
+                        local scriptId = call(GetScriptIdAtSlotIndexForCraftedAbility, craftedId, slot.value, s)
+                        if scriptId then
+                            ids[#ids + 1] = scriptId
+                            if not scripts[scriptId] then
+                                scripts[scriptId] = {
+                                    name     = call(GetCraftedAbilityScriptDisplayName, scriptId) or "",
+                                    unlocked = call(IsCraftedAbilityScriptUnlocked, scriptId) and true or false,
+                                }
+                            end
+                        end
+                    end
+                    g.scripts[slot.key] = ids
+                end
+            end
+            grimoires[craftedId] = g
+        end
+    end
+    iasync_data.scribing = { grimoires = grimoires, scripts = scripts, lastUpdate = GetTimeStamp() }
+end
+
+local function ScanAntiquities()
+    if not GetNextAntiquityId then return end
+    local now = GetTimeStamp()
+    local antiquities, sets, zones = {}, {}, {}
+    local id = call(GetNextAntiquityId)
+    while id do
+        local setId = call(GetAntiquitySetId, id)
+        if setId and setId > 0 and not sets[setId] then sets[setId] = call(GetAntiquitySetName, setId) or "" end
+        local zoneId = call(GetAntiquityZoneId, id)
+        if zoneId and zoneId > 0 and not zones[zoneId] then zones[zoneId] = call(GetZoneNameById, zoneId) or "" end
+        local hasLead = call(DoesAntiquityHaveLead, id) and true or false
+        local leadLeft = hasLead and call(GetAntiquityLeadTimeRemainingSeconds, id) or nil
+        antiquities[id] = {
+            name         = call(GetAntiquityName, id) or "",
+            icon         = call(GetAntiquityIcon, id),
+            quality      = call(GetAntiquityQuality, id),
+            setId        = (setId and setId > 0) and setId or nil,
+            zoneId       = zoneId,
+            repeatable   = call(IsAntiquityRepeatable, id) and true or false,
+            numRecovered = call(GetNumAntiquitiesRecovered, id) or 0,
+            loreAcquired = call(GetNumAntiquityLoreEntriesAcquired, id) or 0,
+            loreTotal    = call(GetNumAntiquityLoreEntries, id) or 0,
+            hasLead      = hasLead,
+            leadExpires  = (leadLeft and leadLeft > 0) and (now + leadLeft) or nil,
+        }
+        id = call(GetNextAntiquityId, id)
+    end
+    iasync_data.antiquities = { items = antiquities, sets = sets, zones = zones, lastUpdate = now }
+end
+
 -- ── UI colours ──────────────────────────────────────────────────────────────
 -- Interface colours live in the client, not in the UI source; ESO Armory uses
 -- them to draw its Achievements and Collections tabs in the in-game colours.
@@ -1279,7 +1486,12 @@ local function OnPlayerActivated()
     zo_callLater(function()
         ScanCharacterBags()
         ResolveBuildNames()
+        ScanCharacterDetails()
     end, 2000)
+    zo_callLater(function()
+        ScanScribing()
+        ScanAntiquities()
+    end, 6000)
     zo_callLater(ScanHouseChests, 3000)
     zo_callLater(ScanAchievements, 5000)
     zo_callLater(ScanStickerbook, 7000)
@@ -1370,5 +1582,8 @@ function iasync_scan()
     ScanStickerbook()
     ScanCollectibles()
     ScanActivities()
+    ScanCharacterDetails()
+    ScanScribing()
+    ScanAntiquities()
     ScanUiColors()
 end

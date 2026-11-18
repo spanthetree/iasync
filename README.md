@@ -19,6 +19,10 @@ iasync is read-only. It never changes your inventory, builds or any other game s
 - **Storage**: personal bank, ESO Plus bank, craft bag, house storage chests and guild bank.
 - **Achievements**: every achievement with criteria progress, rewards, completion date and the character who earned it, split into account-wide and per-character. Includes category point totals that match the in-game summary.
 - **Set collections**: collected pieces for every set in the stickerbook.
+- **Character details**: level, Champion Points, title, zone, riding skill, guild ranks, Alliance War rank, and every currency.
+- **Crafting knowledge**: trait research (including research in progress), known motif chapters and known recipes, per character.
+- **Scribing**: grimoires and scripts unlocked.
+- **Antiquities**: leads held (with expiry), recoveries and Codex lore entries.
 - **Activities**: daily and weekly Endeavors, Tamriel Tome seasonal challenges, the Tamriel Tome pass (level and reward track) and Golden Pursuits campaigns, with progress toward each.
 - **Collectibles**: the in-game Collections tree with unlocked state, including mounts, pets, costumes, houses, outfit styles and Tales of Tribute patrons.
 
@@ -84,6 +88,14 @@ iasync_data = {
                     werewolf = { ... } },  -- present only for werewolf characters
       build_attributes = { health, magicka, stamina },
       build_pools = { health, magicka, stamina },  -- max resource pools, as on the character sheet
+      level, championPoints, title, zone, zoneId, avaRank, avaRankName,
+      riding = { inventory, inventoryMax, stamina, staminaMax, speed, speedMax },
+      guilds = { [i] = { name, rankIndex, rankName } },
+      currencies = { ["TRANSMUTE_CRYSTALS"] = amount, ... },  -- character-held currencies, keyed by CURT_* suffix
+      research = { blacksmithing = { [line] = { name, icon, numTraits, known = { traitType, ... },
+                                                researching = { { traitType, endTime }, ... } } }, clothier = ..., woodworking = ..., jewelrycrafting = ... },
+      motifs = { [styleId] = { name, numChapters, known = { "helmets", ... } } },  -- styles with at least one chapter known
+      recipes = { [listIndex] = { name, total, known = { "Recipe Name", ... } } },
       build_mundus = { "Stone Name", ... },   -- nil if none active; Lua sequential table
       build_cp = { earned = N, slots = { [slot] = abilityId } },
       abilityNames = { [abilityId] = "Name" },
@@ -156,6 +168,20 @@ iasync_data = {
     patrons = {  -- Tales of Tribute patrons
       [patronId] = { name, collectibleId, icon, smallIcon, suitIcon, rarity, neutral, category, categoryIcon, categoryOrder },  -- category = in-game tree header ("Patrons", "Neutral")
     },
+    lastUpdate,
+  },
+  currencies = {  -- keyed by CURT_* suffix; account = account-held amount, bank = banked amount of a character-held currency
+    ["SEALS"] = { name, account }, ["MONEY"] = { name, bank }, ...
+  },
+  scribing = {
+    grimoires = { [craftedAbilityId] = { name, icon, abilityId, unlocked, scribed,
+                                        scripts = { primary = { scriptId, ... }, secondary = { ... }, tertiary = { ... } } } },
+    scripts = { [scriptId] = { name, unlocked } },
+    lastUpdate,
+  },
+  antiquities = {
+    items = { [antiquityId] = { name, icon, quality, setId, zoneId, repeatable, numRecovered, loreAcquired, loreTotal, hasLead, leadExpires } },
+    sets = { [setId] = name }, zones = { [zoneId] = name },
     lastUpdate,
   },
   activities = {  -- account-wide snapshot at scan time; times are unix seconds

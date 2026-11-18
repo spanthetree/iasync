@@ -128,6 +128,9 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
 
 - **`iasync_data.collectibles` is account-wide.** `items` is keyed by collectibleId (string keys in JSON); each item's `cat`/`sub` index into `categories[cat].subcats[sub]` (`sub = 0` means directly under the top level). Use `categories[i].specialization` to split the Collections tabs (housing, outfit styles, Tales of Tribute). `patrons[patronId]` adds Tales of Tribute patron names, icons and category; join to `items` through `collectibleId`. Tribute card upgrade rewards carry `name` = "<upgraded card> (<patron>)" from `GetTributePatronDockCardInfoByIndex` + `GetTributeCardName`.
 - **`iasync_data.activities` is a snapshot.** Progress is as of `lastUpdate`; `endTime`/`resetTime` are unix seconds, so a consumer can tell when a snapshot has expired. Golden Pursuits campaign keys are id64 userdata: pass them straight back to the API and never store them. Reward `claimed` flags come from `BitAnd(flags, PROMOTIONAL_EVENTS_REWARD_FLAG_CLAIMED)`. `tome` is the `REWARD_TRACK_TYPE_TAMRIEL_TOMES` reward track; reward names and icons come from `REWARDS_MANAGER:GetInfoForReward(id, qty)` (pcall'd). Which component (`primary`/`secondary`) is the free track is inferred from `access`, not documented by ZOS.
+- **Character details, currencies, research, motifs and recipes are per character** (`ScanCharacterDetails`, run right after `ScanCharacterBags`). Account-held currencies (e.g. Seals, Tome Points) and banked amounts go in the top-level `currencies`. `c.gold/ap/tv/wv` stay for backwards compatibility.
+- **Motif chapters** come from `IsSmithingStyleKnown(styleId, ITEM_STYLE_CHAPTER_*)`. The doc names the 2nd parameter `patternIndex`, so the chapter mapping must be checked in game against a known motif.
+- **`scribing` and `antiquities` are account-wide** (`ScanScribing`, `ScanAntiquities`, 6 s after login). Antiquity `leadExpires` is unix seconds.
 - **`build_mundus` is `nil` when no stone is active**, not an empty table. When stones are active it is a Lua sequential table (e.g. `{ "The Lady" }`), which serialises to JSON as `{"1": "The Lady"}`. `data_processor.py` handles both dict and list forms via `list(build_mundus.values()) if isinstance(..., dict) else list(...)`.
 - **House data is keyed by house ID (from `GetCurrentZoneHouseId`) as a string**, e.g. `"66"`. Only houses the player owns are scanned (`IsOwnerOfCurrentHouse`). House storage bags are account-wide, so every owned house holds the same `chests`; consumers must count each chest bag ID once. The same house ID is used across sessions and characters.
 - **Achievement entries now keep line-chain and attribution metadata.** Store `lineBaseId`, `linePreviousId`, `lineNextId`, `completedByCharId`, and `completedByCharName` with the existing achievement payload so the web app can group lines and show who earned a completion.
@@ -137,10 +140,11 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
 ```
 EVENT_ADD_ON_LOADED       → OnAddonLoaded    (initialise iasync_data structure, init stickerbook table)
 EVENT_PLAYER_ACTIVATED    → OnPlayerActivated  (fires on login, /reloadui, and zone changes)
-    └─ zo_callLater 2 s   → ScanCharacterBags + ResolveBuildNames
+    └─ zo_callLater 2 s   → ScanCharacterBags + ResolveBuildNames + ScanCharacterDetails
     └─ zo_callLater 3 s   → ScanHouseChests (no-op if not in a house)
     └─ zo_callLater 7 s   → ScanStickerbook (account-wide; 7 s gives ITEM_SET_COLLECTIONS_DATA_MANAGER time to populate)
     └─ zo_callLater 4 s   → ScanActivities (account-wide)
+    └─ zo_callLater 6 s   → ScanScribing + ScanAntiquities (account-wide)
     └─ zo_callLater 9 s   → ScanCollectibles (account-wide)
 EVENT_ACHIEVEMENTS_UPDATED → ScanAchievements (refresh achievement state when ESO rebuilds it mid-session)
 EVENT_ACHIEVEMENT_AWARDED → OnAchievementAwarded (args: eventCode, name, points, achievementId, link)
