@@ -95,7 +95,7 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
 - **`chars` keys are always strings.** `GetCurrentCharacterId()` returns a number; wrap it in `tostring()` everywhere or Lua table key comparison will silently fail.
 - **Bag IDs are integers, slot IDs are integers** — but they are stored as Lua table keys, which means they become integer-keyed tables. The Python side receives them as dicts with string keys (JSON serialisation). `data_processor.py` handles this by calling `int(bag_id_raw)` and iterating with string keys from the JSON.
 - **`enchantId` is always 0.** `CaptureSlot` captures the enchant display name via `GetItemLinkEnchantInfo` but never populates the `enchantId` field. The Python side derives a numeric enchant ID from the item link decoder instead.
-- **`abilityNames` / `cpNames` live under each character entry**, not at the top level. The top-level `iasync_data.abilityNames` and `iasync_data.cpNames` are kept for backwards compatibility only and are no longer written to.
+- **`abilityNames` / `cpNames` live under each character entry** for what that character has slotted. Top-level `iasync_data.cpNames` and `iasync_data.cpDescriptions` are the account-wide catalogue of every champion star (`ScanChampionSkills`; descriptions at max points), so Wizards Wardrobe setups can name stars nobody has slotted. Top-level `abilityNames` is legacy and not written.
 - **`iasync_data.stickerbook` is account-wide** (not per-character). Schema:
   ```
   iasync_data.stickerbook = {

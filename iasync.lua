@@ -1467,6 +1467,28 @@ local function ScanAntiquities()
     iasync_data.antiquities = { items = antiquities, sets = sets, zones = zones, lastUpdate = now }
 end
 
+-- ── Champion skill catalogue (account-wide) ─────────────────────────────────
+-- Every star's name and description, so builds can name stars no scanned character has slotted.
+
+local function ScanChampionSkills()
+    if not GetNumChampionDisciplines then return end
+    local names, descriptions = {}, {}
+    for disc = 1, call(GetNumChampionDisciplines) or 0 do
+        for idx = 1, call(GetNumChampionDisciplineSkills, disc) or 0 do
+            local id = call(GetChampionSkillId, disc, idx)
+            if id and id > 0 then
+                local name = call(GetChampionSkillName, id)
+                if name and name ~= "" then names[id] = name end
+                -- Described at max points, so the text shows the star's full effect.
+                local desc = call(GetChampionSkillDescription, id, call(GetChampionSkillMaxPoints, id) or 0)
+                if desc and desc ~= "" then descriptions[id] = desc end
+            end
+        end
+    end
+    iasync_data.cpNames        = names
+    iasync_data.cpDescriptions = descriptions
+end
+
 -- ── UI colours ──────────────────────────────────────────────────────────────
 -- Interface colours live in the client, not in the UI source; ESO Armory uses
 -- them to draw its Achievements and Collections tabs in the in-game colours.
@@ -1507,6 +1529,7 @@ local function OnPlayerActivated()
     zo_callLater(function()
         ScanScribing()
         ScanAntiquities()
+        ScanChampionSkills()
     end, 6000)
     zo_callLater(ScanHouseChests, 3000)
     zo_callLater(ScanAchievements, 5000)
@@ -1601,5 +1624,6 @@ function iasync_scan()
     ScanCharacterDetails()
     ScanScribing()
     ScanAntiquities()
+    ScanChampionSkills()
     ScanUiColors()
 end
