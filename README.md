@@ -16,6 +16,7 @@ iasync is read-only. It never changes your inventory, builds or any other game s
 
 - **Characters**: equipped gear and backpack, with trait, enchant, set, quality, armor weight and weapon type for every item. Also currencies, backpack capacity, and name, race, class, alliance and gender.
 - **Builds**: front, back and werewolf skill bars (scribed skills resolved to their base ability), slotted Champion Point stars, attribute allocation, and active Mundus Stone(s).
+- **Skill metadata**: names and icon texture paths for equipped skills and the logged-in character's saved Wizards Wardrobe setups. Successful lookups are retained across scans and reloads.
 - **Storage**: personal bank, ESO Plus bank, craft bag, house storage chests and guild bank.
 - **Achievements**: every achievement with criteria progress, rewards, completion date and the character who earned it, split into account-wide and per-character. Includes category point totals that match the in-game summary.
 - **Set collections**: collected pieces for every set in the stickerbook.
@@ -105,7 +106,8 @@ iasync_data = {
       },
       build_mundus = { "Stone Name", ... },   -- nil if none active; Lua sequential table
       build_cp = { earned = N, slots = { [slot] = abilityId } },
-      abilityNames = { [abilityId] = "Name" },
+      abilityNames = { [abilityId] = "Name" },  -- equipped and saved skills, retained across scans
+      abilityIcons = { [abilityId] = "/esoui/art/icons/ability_...dds" },
       cpNames      = { [abilityId] = "Name" },
       cpDescriptions = { [championSkillId] = "Description" },  -- slotted stars, from GetChampionSkillDescription at current points
       mundusDescriptions = { ["Stone Name"] = "Description" }, -- keyed as in build_mundus, from GetAbilityDescription of the boon buff
@@ -229,7 +231,7 @@ Lua tables with integer keys (bag IDs, slot IDs, set IDs) become string keys whe
 
 ## Design notes
 
-- **Ability names are per-character.** `GetAbilityName` can only resolve abilities available in the current game session (i.e., loaded class). Each character's names are stored under `chars[charId].abilityNames` so a login as one character never overwrites another's resolved names.
+- **Ability names are per-character.** `GetAbilityName` can only resolve abilities available in the current game session (i.e., loaded class). Each character's names and icon paths are retained under `chars[charId].abilityNames` and `abilityIcons`. Scans include equipped bars and that character's Wizards Wardrobe setups when available. Empty or failed lookups preserve previous values. Log into each character to capture its saved builds. ESO Armory 0.2.0-beta.9 uses the icon paths directly.
 - **Craft bag uses a linked-list iterator.** `BAG_VIRTUAL` cannot be iterated with numeric slots; `GetNextVirtualBagSlotId` must be used instead.
 - **House chests need a delay.** Container bag data is not immediately available after a zone transition, so scanning is deferred 3 seconds via `zo_callLater`.
 - **Crafted abilities are resolved to their base ID.** Scribing abilities on skill bars use a crafted ability ID; `GetAbilityIdForCraftedAbilityId` converts them before storage so the web app can look up names and icons consistently.
@@ -239,3 +241,7 @@ Lua tables with integer keys (bag IDs, slot IDs, set IDs) become string keys whe
 ## License
 
 [MIT](LICENSE)
+
+## Validation
+
+Run `luac5.1 -p iasync.lua` and `lua5.1 tests/ability_metadata.lua` for syntax and mocked ability-export regression checks. In game, reload the UI to load the addon, wait for the scan, then reload again to write the new SavedVariables. Inspect the current character's `abilityNames` and `abilityIcons` entries.
