@@ -1035,8 +1035,10 @@ local function ScanCollectibles()
         local okNum, numPatrons = pcall(GetNumTributePatrons)
         for i = 1, (okNum and numPatrons) or 0 do
             local patronId = call(GetTributePatronIdAtIndex, i)
-            if patronId and patronId > 0 then
-                local categoryId = call(GetTributePatronCategoryId, patronId)
+            local categoryId = patronId and patronId > 0 and call(GetTributePatronCategoryId, patronId)
+            local category = categoryId and categoryId > 0 and call(GetTributePatronCategoryName, categoryId)
+            -- Uncategorised patrons are NPC opponents and duplicate variants, not in the in-game tree.
+            if category then
                 patrons[patronId] = {
                     name          = call(GetTributePatronName, patronId) or "",
                     collectibleId = call(GetTributePatronCollectibleId, patronId),  -- 0/nil for patrons every player has
@@ -1045,9 +1047,9 @@ local function ScanCollectibles()
                     suitIcon      = call(GetTributePatronSuitIcon, patronId),
                     rarity        = call(GetTributePatronRarity, patronId),
                     neutral       = call(IsTributePatronNeutral, patronId) and true or false,
-                    category      = categoryId and call(GetTributePatronCategoryName, categoryId) or nil,
-                    categoryIcon  = categoryId and call(GetTributePatronCategoryKeyboardIcons, categoryId) or nil,
-                    categoryOrder = categoryId and call(GetTributePatronCategorySortOrder, categoryId) or nil,
+                    category      = category,
+                    categoryIcon  = call(GetTributePatronCategoryKeyboardIcons, categoryId),
+                    categoryOrder = call(GetTributePatronCategorySortOrder, categoryId),
                 }
             end
         end
