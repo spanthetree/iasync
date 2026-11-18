@@ -122,7 +122,7 @@ iasync_data = {
     },
     categories = {
       [catIdx] = {
-        name, total, complete, earnedPts, totalPts, numAchievements, hidesUnearned,
+        name, icon, total, complete, earnedPts, totalPts, numAchievements, hidesUnearned,  -- icon: keyboard tree icon path
         subcats = { [subIdx] = { name, total, complete, earnedPts, totalPts, numAchievements, hidesUnearned } },
       }
     },
@@ -133,10 +133,16 @@ iasync_data = {
       [setId] = {
         name, category, subcategory,
         numCollected, numTotal,
-        pieces = { [i] = { filterType, collected, name } },
+        reconCurrency, reconCost,  -- transmute cost from the in-game set header (CURT_* currency type); nil if unknown
+        pieces = { [i] = { id, filterType, collected, name, icon, quality } },  -- icon: /esoui/art/icons/... from GetItemLinkIcon; quality: ITEM_DISPLAY_QUALITY_*
       }
     },
+    categoryIcons = { [categoryName] = iconPath },  -- top-level category tree icons
     lastUpdate,
+  },
+  uiColors = {  -- "rrggbb" from GetInterfaceColor; nil if a constant is missing
+    textNormal, textSelected, textHighlight, textDisabled, textDefault, textContrast, textSucceeded, textSecondSelected, textSecondNormal,
+    xpStart, xpEnd,
   },
   abilityNames = {},   -- legacy; kept for backwards compat, not actively written
   cpNames      = {},   -- legacy; kept for backwards compat, not actively written

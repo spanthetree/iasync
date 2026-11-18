@@ -4,6 +4,22 @@ All notable changes to iasync will be documented here.
 
 ## [Unreleased]
 
+## [1.7.0] — 2026-11-18
+
+### Added
+
+- Set reconstruction cost (`stickerbook.sets[id].reconCurrency`, `reconCost`), the transmute cost shown in the in-game Sets header
+- Set collection piece id and display quality (`pieces[i].id`, `pieces[i].quality`)
+- In-game interface colours (`uiColors`: text normal/selected/highlight/disabled/default/contrast/succeeded/second and the XP bar gradient) from `GetInterfaceColor`, as `rrggbb` hex
+
+## [1.6.0] — 2026-11-17
+
+### Added
+
+- Set collection piece icons (`stickerbook.sets[id].pieces[i].icon`) from `GetItemLinkIcon`, so ESO Armory can draw the in-game piece grid
+- Top-level set collection category icons (`stickerbook.categoryIcons`)
+- Achievement category tree icons (`achievements.categories[i].icon`) from `GetAchievementCategoryKeyboardIcons`
+
 ## [1.5.0] — 2026-11-17
 
 ### Added

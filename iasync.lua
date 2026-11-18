@@ -726,6 +726,11 @@ local function ScanAchievements()
             hidesUnearned  = hidesUnearned and true or false,
             subcats        = {},
         }
+        -- Keyboard tree icon (e.g. /esoui/art/treeicons/achievements_indexicon_dungeons_up.dds)
+        if GetAchievementCategoryKeyboardIcons then
+            local okI, icon = pcall(GetAchievementCategoryKeyboardIcons, catIdx)
+            if okI and icon and icon ~= "" then catSumm.icon = icon end
+        end
         catSummaries[catIdx] = catSumm
 
         for subIdx = 1, numSubCats do
@@ -820,6 +825,7 @@ local function ScanStickerbook()
     end
 
     local sets = {}
+    local categoryIcons = {}
     local totalSets, collectedSets = 0, 0
 
     local function processCategory(catData, topName, subName)
@@ -846,29 +852,45 @@ local function ScanStickerbook()
                         local filterType = GetEquipmentFilterTypeForItemSetCollectionSlot(slot) or 0
                         local collected  = IsItemSetCollectionSlotUnlocked(setId, slot) and true or false
                         local pieceName  = ""
+                        local pieceIcon  = nil
+                        local pieceQuality = nil
                         if pieceId then
                             local ok3, link = pcall(GetItemSetCollectionPieceItemLink, pieceId,
                                 LINK_STYLE_DEFAULT or 1, ITEM_TRAIT_TYPE_NONE or 0)
                             if ok3 and link and link ~= "" then
                                 local ok4, n = pcall(GetItemLinkName, link)
                                 if ok4 and n then pieceName = n end
+                                local ok5, ic = pcall(GetItemLinkIcon, link)
+                                if ok5 and ic and ic ~= "" then pieceIcon = ic end
+                                local ok6, q = pcall(GetItemLinkDisplayQuality, link)
+                                if ok6 and type(q) == "number" then pieceQuality = q end
                             end
                         end
                         pieces[i] = {
+                            id         = pieceId,
                             filterType = filterType,
                             collected  = collected,
                             name       = pieceName,
+                            icon       = pieceIcon,
+                            quality    = pieceQuality,
                         }
                     end
                 end
 
+                -- Transmute cost shown in the in-game set header (the UI only uses currency option 1).
+                local reconCurrency, reconCost
+                local ok7, cType, cCost = pcall(function() return collData:GetReconstructionCurrencyOptionInfo(1) end)
+                if ok7 and type(cCost) == "number" then reconCurrency, reconCost = cType, cCost end
+
                 sets[setId] = {
-                    name         = GetItemSetName(setId) or "",
-                    category     = topName or "",
-                    subcategory  = (subName ~= topName) and subName or "",
-                    numCollected = numUnlocked,
-                    numTotal     = numTotal,
-                    pieces       = pieces,
+                    name          = GetItemSetName(setId) or "",
+                    category      = topName or "",
+                    subcategory   = (subName ~= topName) and subName or "",
+                    numCollected  = numUnlocked,
+                    numTotal      = numTotal,
+                    pieces        = pieces,
+                    reconCurrency = reconCurrency,
+                    reconCost     = reconCost,
                 }
             end
         end
@@ -878,6 +900,8 @@ local function ScanStickerbook()
         for _, catData in ITEM_SET_COLLECTIONS_DATA_MANAGER:TopLevelItemSetCollectionCategoryIterator() do
             local nameOk, catName = pcall(function() return catData:GetName() end)
             local name = (nameOk and catName) or "Unknown"
+            local iconOk, icon = pcall(function() return catData:GetKeyboardIcons() end)
+            if iconOk and icon and icon ~= "" then categoryIcons[name] = icon end
             processCategory(catData, name, name)
         end
     end)
@@ -888,10 +912,40 @@ local function ScanStickerbook()
     end
 
     iasync_data.stickerbook = {
-        sets       = sets,
-        lastUpdate = GetTimeStamp(),
+        sets          = sets,
+        categoryIcons = categoryIcons,
+        lastUpdate    = GetTimeStamp(),
     }
     d(string.format("[iasync] Stickerbook: %d sets · %d fully collected", totalSets, collectedSets))
+end
+
+-- ── UI colours ──────────────────────────────────────────────────────────────
+-- Interface colours live in the client, not in the UI source; ESO Armory uses
+-- them to draw its Achievements and Collections tabs in the in-game colours.
+
+local function ScanUiColors()
+    if not GetInterfaceColor then return end
+    local function hex(colorType, field)
+        if colorType == nil or field == nil then return nil end
+        local ok, r, g, b = pcall(GetInterfaceColor, colorType, field)
+        if not ok or type(r) ~= "number" then return nil end
+        return string.format("%02x%02x%02x", zo_round(r * 255), zo_round(g * 255), zo_round(b * 255))
+    end
+    local TEXT = INTERFACE_COLOR_TYPE_TEXT_COLORS
+    local PROG = INTERFACE_COLOR_TYPE_PROGRESSION
+    iasync_data.uiColors = {
+        textNormal    = hex(TEXT, INTERFACE_TEXT_COLOR_NORMAL),
+        textSelected  = hex(TEXT, INTERFACE_TEXT_COLOR_SELECTED),
+        textHighlight = hex(TEXT, INTERFACE_TEXT_COLOR_HIGHLIGHT),
+        textDisabled  = hex(TEXT, INTERFACE_TEXT_COLOR_DISABLED),
+        textDefault   = hex(TEXT, INTERFACE_TEXT_COLOR_DEFAULT_TEXT),
+        textContrast  = hex(TEXT, INTERFACE_TEXT_COLOR_CONTRAST),
+        textSucceeded = hex(TEXT, INTERFACE_TEXT_COLOR_SUCCEEDED),
+        textSecondSelected = hex(TEXT, INTERFACE_TEXT_COLOR_SECOND_SELECTED),
+        textSecondNormal   = hex(TEXT, INTERFACE_TEXT_COLOR_SECOND_NORMAL),
+        xpStart       = hex(PROG, PROGRESSION_COLOR_XP_START),
+        xpEnd         = hex(PROG, PROGRESSION_COLOR_XP_END),
+    }
 end
 
 -- ── Event handlers ───────────────────────────────────────────────────────────
@@ -904,6 +958,7 @@ local function OnPlayerActivated()
     zo_callLater(ScanHouseChests, 3000)
     zo_callLater(ScanAchievements, 5000)
     zo_callLater(ScanStickerbook, 7000)
+    ScanUiColors()
 end
 
 local function OnInventorySlotUpdate(_, bagId, slotIndex)
@@ -945,4 +1000,5 @@ function iasync_scan()
     ResolveBuildNames()
     ScanAchievements()
     ScanStickerbook()
+    ScanUiColors()
 end

@@ -77,6 +77,8 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
 | `GetItemSetCollectionPieceInfo(setId, index)` | `(pieceId, slot)` — 1-based index. `slot` is an id64 userdata; pass directly to other API calls, never convert to integer. |
 | `IsItemSetCollectionSlotUnlocked(setId, slot)` | True if the account has collected this piece slot. |
 | `GetItemSetName(setId)` | Display name of the set (e.g. "Mara's Balm"). |
+| `collData:GetReconstructionCurrencyOptionInfo(1)` | `(currencyType, cost)` transmute cost for reconstructing a piece; the in-game header only shows option 1. Must be `pcall`'d. |
+| `GetItemLinkDisplayQuality(link)` | `ITEM_DISPLAY_QUALITY_*` integer for a piece link. |
 | `GetItemSetCollectionPieceItemLink(pieceId, linkStyle, traitType)` | Returns an item link string. Use `LINK_STYLE_DEFAULT or 1` and `ITEM_TRAIT_TYPE_NONE or 0`. Must be `pcall`'d. |
 | `GetEquipmentFilterTypeForItemSetCollectionSlot(slot)` | Returns an armor/weapon type integer — **NOT** an `ITEM_FILTER_TYPE_*` value despite the name. Unreliable for display; use piece names from `GetItemLinkName` instead. |
 | `GetItemLinkName(link)` | Extracts display name from an item link (e.g. "Abyssal Brace Helm"). Must be `pcall`'d. |
@@ -91,6 +93,7 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
   ```
   iasync_data.stickerbook = {
       lastUpdate = <unix timestamp>,
+      categoryIcons = { ["Dungeons"] = "/esoui/art/...dds" },  -- top-level category:GetKeyboardIcons()
       sets = {
           [setId] = {
               name         = "Mara's Balm",
@@ -98,11 +101,16 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
               subcategory  = "Cyrodiil Rewards",  -- "" if same as category
               numCollected = 7,
               numTotal     = 12,
+              reconCurrency = 5,     -- CURT_* currency type (transmute crystals); nil if unknown
+              reconCost     = 25,
               pieces = {
                   [i] = {
-                      filterType = <integer>,   -- armor/weapon type; unreliable, prefer name
+                      id         = <integer>,   -- piece id from GetItemSetCollectionPieceInfo
+                      filterType = <integer>,   -- EQUIPMENT_FILTER_TYPE_* (1 light .. 11 bow)
                       collected  = true/false,
                       name       = "Mara's Balm Greaves",  -- from GetItemLinkName
+                      icon       = "/esoui/art/icons/gear_...dds",  -- from GetItemLinkIcon; nil if unavailable
+                      quality    = 5,           -- ITEM_DISPLAY_QUALITY_* from GetItemLinkDisplayQuality
                   }
               }
           }
