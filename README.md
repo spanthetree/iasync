@@ -95,7 +95,7 @@ iasync_data = {
           lineBaseId, linePreviousId, lineNextId,
           completedByCharId, completedByCharName,
           criteria = { [i] = { desc, cur, req } },
-          rewards  = { { type, name, id, ... }, ... }, -- item rewards: { type, name, icon } (no qty); includes tribute_card_upgrade entries
+          rewards  = { { type, name, id, ... }, ... }, -- item rewards: { type, name, icon } (no qty); includes tribute_card_upgrade entries { type, patronId, cardIndex, name }
         }
       },
       lastUpdate,
@@ -151,6 +151,9 @@ iasync_data = {
     },
     items = {
       [collectibleId] = { name, icon, unlocked, categoryType, cat, sub },  -- cat/sub index into categories; sub = 0 for top-level items
+    },
+    patrons = {  -- Tales of Tribute patrons
+      [patronId] = { name, collectibleId, icon, smallIcon, suitIcon, rarity, neutral, category, categoryIcon, categoryOrder },  -- category = in-game tree header ("Patrons", "Neutral")
     },
     lastUpdate,
   },

@@ -4,6 +4,13 @@ All notable changes to iasync will be documented here.
 
 ## [Unreleased]
 
+## [1.10.0] — 2026-11-18
+
+### Added
+
+- Tales of Tribute patrons (`collectibles.patrons`), only those in the in-game tree (NPC opponents are skipped): name, large/small/suit icons, rarity, neutral flag and patron category (the in-game tree header, e.g. "Patrons" or "Neutral") with its icon and sort order, linked to the patron collectible by `collectibleId`
+- Tribute card upgrade rewards now have a `name`, "<upgraded card> (<patron>)"
+
 ## [1.9.0] — 2026-11-18
 
 ### Added

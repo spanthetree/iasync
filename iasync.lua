@@ -215,6 +215,21 @@ local function IsAccountWideAchievement(achId)
     return ok and lvl == ACHIEVEMENT_PERSISTENCE_ACCOUNT
 end
 
+-- "<upgraded card> (<patron>)" for a tribute card upgrade reward; nil if the API can't resolve it.
+local function TributeCardUpgradeName(patronId, cardIndex)
+    local function call(fn, ...)
+        if not fn then return nil end
+        local ok, a, b = pcall(fn, ...)
+        if ok then return a, b end
+    end
+    local patron = call(GetTributePatronName, patronId)
+    local baseId, upgradeId = call(GetTributePatronDockCardInfoByIndex, patronId, cardIndex)
+    local card = call(GetTributeCardName, (upgradeId and upgradeId > 0) and upgradeId or baseId)
+    if card and card ~= "" and patron and patron ~= "" then return card .. " (" .. patron .. ")" end
+    if card and card ~= "" then return card end
+    return nil
+end
+
 local function CaptureAchievementRewards(achId)
     local rewards = {}
 
@@ -283,6 +298,7 @@ local function CaptureAchievementRewards(achId)
                     type = "tribute_card_upgrade",
                     patronId = tributePatronId,
                     cardIndex = tributeCardIndex,
+                    name = TributeCardUpgradeName(tributePatronId, tributeCardIndex),
                 }
             end
         end
@@ -1008,9 +1024,41 @@ local function ScanCollectibles()
         end
     end
 
+    -- Tales of Tribute patrons: names and art the collectible entries lack (the Patrons category has no icon).
+    local patrons = {}
+    if GetNumTributePatrons and GetTributePatronIdAtIndex then
+        local function call(fn, ...)
+            if not fn then return nil end
+            local ok, a = pcall(fn, ...)
+            if ok and a ~= "" then return a end
+        end
+        local okNum, numPatrons = pcall(GetNumTributePatrons)
+        for i = 1, (okNum and numPatrons) or 0 do
+            local patronId = call(GetTributePatronIdAtIndex, i)
+            local categoryId = patronId and patronId > 0 and call(GetTributePatronCategoryId, patronId)
+            local category = categoryId and categoryId > 0 and call(GetTributePatronCategoryName, categoryId)
+            -- Uncategorised patrons are NPC opponents and duplicate variants, not in the in-game tree.
+            if category then
+                patrons[patronId] = {
+                    name          = call(GetTributePatronName, patronId) or "",
+                    collectibleId = call(GetTributePatronCollectibleId, patronId),  -- 0/nil for patrons every player has
+                    icon          = call(GetTributePatronLargeIcon, patronId),
+                    smallIcon     = call(GetTributePatronSmallIcon, patronId),
+                    suitIcon      = call(GetTributePatronSuitIcon, patronId),
+                    rarity        = call(GetTributePatronRarity, patronId),
+                    neutral       = call(IsTributePatronNeutral, patronId) and true or false,
+                    category      = category,
+                    categoryIcon  = call(GetTributePatronCategoryKeyboardIcons, categoryId),
+                    categoryOrder = call(GetTributePatronCategorySortOrder, categoryId),
+                }
+            end
+        end
+    end
+
     iasync_data.collectibles = {
         categories = categories,
         items      = items,
+        patrons    = patrons,
         lastUpdate = GetTimeStamp(),
     }
     d(string.format("[iasync] Collectibles: %d / %d unlocked", unlocked, total))
