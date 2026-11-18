@@ -1294,7 +1294,8 @@ local function ScanCharacterDetails()
             c.guilds[i] = {
                 name      = call(GetGuildName, guildId) or "",
                 rankIndex = rankIndex,
-                rankName  = rankIndex and call(GetGuildRankCustomName, guildId, rankIndex) or nil,
+                -- GetFinalGuildRankName (ZO Lua) falls back to the default rank name when no custom name is set.
+                rankName  = rankIndex and (call(GetFinalGuildRankName, guildId, rankIndex) or call(GetGuildRankCustomName, guildId, rankIndex)) or nil,
             }
         end
     end
@@ -1389,11 +1390,12 @@ local function ScanScribing()
     local grimoires, scripts = {}, {}
     for i = 1, call(GetNumCraftedAbilities) or 0 do
         local craftedId = call(GetCraftedAbilityIdAtIndex, i)
-        if craftedId then
-            local abilityId = call(GetAbilityIdForCraftedAbilityId, craftedId)
+        local abilityId = craftedId and call(GetAbilityIdForCraftedAbilityId, craftedId)
+        -- Skip placeholder entries with no ability behind them.
+        if abilityId and abilityId > 0 then
             local g = {
-                name     = abilityId and call(GetAbilityName, abilityId) or "",
-                icon     = abilityId and call(GetAbilityIcon, abilityId) or nil,
+                name     = call(GetCraftedAbilityDisplayName, craftedId) or call(GetAbilityName, abilityId) or "",
+                icon     = call(GetCraftedAbilityIcon, craftedId) or call(GetAbilityIcon, abilityId),
                 abilityId = abilityId,
                 unlocked = call(IsCraftedAbilityUnlocked, craftedId) and true or false,
                 scribed  = call(IsCraftedAbilityScribed, craftedId) and true or false,
