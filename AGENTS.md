@@ -8,7 +8,7 @@ iasync is a **read-only data exporter**. It never modifies the player's inventor
 
 The SavedVariables file is read by the ESO Armory web app (`server.py` / `data_processor.py`). Any schema change here must be reflected there too. `process_iasync` handles character bags, bank, and houses. `process_iasync_builds` reads equipped gear and build data per character.
 
-**Currently not consumed by eso-armory:** `guildBanks` — the data is captured but `data_processor.py` does not read it, so it will not appear in the web app.
+`process_iasync` also reads `guildBanks` (items with location type `guild_bank`).
 
 ## File layout
 
@@ -134,7 +134,8 @@ EVENT_PLAYER_ACTIVATED    → OnPlayerActivated  (fires on login, /reloadui, and
 EVENT_ACHIEVEMENTS_UPDATED → ScanAchievements (refresh achievement state when ESO rebuilds it mid-session)
 EVENT_ACHIEVEMENT_AWARDED → OnAchievementAwarded (args: eventCode, name, points, achievementId, link)
 EVENT_OPEN_BANK           → ScanBankBags
-EVENT_OPEN_GUILD_BANK     → ScanGuildBank
+EVENT_GUILD_BANK_ITEMS_READY → ScanGuildBank (selected guild's items loaded; again after switching guilds)
+EVENT_GUILD_BANK_ITEM_ADDED / _REMOVED / _UPDATED_QUANTITY → OnGuildBankChanged (rescan 500 ms after the burst)
 EVENT_INVENTORY_SINGLE_SLOT_UPDATE → OnInventorySlotUpdate → UpdateSlot
 ```
 
@@ -169,7 +170,7 @@ When you need to skip to the next iteration of an outer loop, extract the loop b
 
 **`slot` from `GetItemSetCollectionPieceInfo` is id64 userdata.** Never store it as an integer or call `tostring()` on it for use as a key. Pass it directly to `IsItemSetCollectionSlotUnlocked` and `GetEquipmentFilterTypeForItemSetCollectionSlot`.
 
-**Guild bank multi-guild ambiguity.** `ScanGuildBank` stores data under the first guild's name it finds. If a player is in multiple guilds with guild banks, only the open one is scanned but there is currently no API to identify which guild bank is open. This is a known limitation.
+**Guild bank slots.** Guild bank slot ids are not `0..GetBagSize-1`; walk them with `ZO_GetNextBagSlotIndex(BAG_GUILDBANK, slot)`. The open bank's guild is `GetSelectedGuildBankId()`. `EVENT_INVENTORY_SINGLE_SLOT_UPDATE` does not cover guild banks; use the `EVENT_GUILD_BANK_*` events.
 
 ## Making schema changes
 
