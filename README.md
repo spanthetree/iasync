@@ -94,7 +94,7 @@ iasync_data = {
       currencies = { ["TRANSMUTE_CRYSTALS"] = amount, ... },  -- character-held currencies, keyed by CURT_* suffix
       research = { blacksmithing = { [line] = { name, icon, numTraits, known = { traitType, ... },
                                                 researching = { { traitType, endTime }, ... } } }, clothier = ..., woodworking = ..., jewelrycrafting = ... },
-      motifs = { [styleId] = { name, numChapters, known = { "helmets", ... } } },  -- styles with at least one chapter known
+      motifs = { [collectionId] = { name, numKnown, total, books = { [i] = { title, known } } } },  -- Lore Library "Crafting Motifs"; styles with at least one book known
       recipes = { [listIndex] = { name, total, known = { "Recipe Name", ... } } },
       scribing = {
         grimoires = { [craftedAbilityId] = { name, icon, abilityId, unlocked, scribed,

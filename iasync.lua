@@ -1260,12 +1260,6 @@ local RESEARCH_CRAFTS = {
     { key = "jewelrycrafting", value = CRAFTING_TYPE_JEWELRYCRAFTING },
 }
 
--- ITEM_STYLE_CHAPTER_* values, one per motif chapter (ALL is excluded).
-local MOTIF_CHAPTERS = {
-    "AXES", "BELTS", "BOOTS", "BOWS", "CHESTS", "DAGGERS", "GLOVES", "HELMETS",
-    "LEGS", "MACES", "SHIELDS", "SHOULDERS", "STAVES", "SWORDS",
-}
-
 local function ScanCharacterDetails()
     local charId = tostring(GetCurrentCharacterId())
     local c = iasync_data.chars[charId]
@@ -1344,21 +1338,22 @@ local function ScanCharacterDetails()
         end
     end
 
-    -- Motifs: chapters known per style. Styles with no chapter known are left out.
+    -- Motifs from the Lore Library's "Crafting Motifs" category: one collection per style, one book per chapter.
+    -- shortcut: matches the English category name, so other client languages get no motifs; match by categoryId once known.
     c.motifs = {}
-    for i = 1, call(GetNumValidItemStyles) or 0 do
-        local styleId = call(GetValidItemStyleId, i)
-        if styleId and styleId > 0 then
-            local known, total = {}, 0
-            for _, chapter in ipairs(MOTIF_CHAPTERS) do
-                local value = _G["ITEM_STYLE_CHAPTER_" .. chapter]
-                if value then
-                    total = total + 1
-                    if call(IsSmithingStyleKnown, styleId, value) then known[#known + 1] = chapter:lower() end
+    for cat = 1, call(GetNumLoreCategories) or 0 do
+        local catName, numCollections = call(GetLoreCategoryInfo, cat)
+        if catName == "Crafting Motifs" then
+            for col = 1, numCollections or 0 do
+                local name, _, numKnown, totalBooks, hidden, _, collectionId = call(GetLoreCollectionInfo, cat, col)
+                if not hidden and (numKnown or 0) > 0 then
+                    local books = {}
+                    for b = 1, totalBooks or 0 do
+                        local title, _, known = call(GetLoreBookInfo, cat, col, b)
+                        books[b] = { title = title or "", known = known and true or false }
+                    end
+                    c.motifs[collectionId or col] = { name = name or "", numKnown = numKnown, total = totalBooks or 0, books = books }
                 end
-            end
-            if #known > 0 then
-                c.motifs[styleId] = { name = call(GetItemStyleName, styleId) or "", known = known, numChapters = total }
             end
         end
     end
