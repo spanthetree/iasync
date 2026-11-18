@@ -1386,11 +1386,12 @@ local function ScanScribing()
     for i = 1, call(GetNumCraftedAbilities) or 0 do
         local craftedId = call(GetCraftedAbilityIdAtIndex, i)
         local abilityId = craftedId and call(GetAbilityIdForCraftedAbilityId, craftedId)
-        -- Skip placeholder entries with no ability behind them.
-        if abilityId and abilityId > 0 then
+        local name = craftedId and call(GetCraftedAbilityDisplayName, craftedId)
+        -- Skip placeholder entries with no name. abilityId can be 0 for real grimoires, so it is not the test.
+        if name and name ~= "" then
             local g = {
-                name     = call(GetCraftedAbilityDisplayName, craftedId) or call(GetAbilityName, abilityId) or "",
-                icon     = call(GetCraftedAbilityIcon, craftedId) or call(GetAbilityIcon, abilityId),
+                name     = name,
+                icon     = call(GetCraftedAbilityIcon, craftedId),
                 abilityId = abilityId,
                 unlocked = call(IsCraftedAbilityUnlocked, craftedId) and true or false,
                 scribed  = call(IsCraftedAbilityScribed, craftedId) and true or false,
