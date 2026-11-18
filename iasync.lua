@@ -1064,6 +1064,393 @@ local function ScanCollectibles()
     d(string.format("[iasync] Collectibles: %d / %d unlocked", unlocked, total))
 end
 
+-- ── Timed activities and Golden Pursuits (account-wide) ────────────────────
+-- Endeavors (daily, weekly) and Tamriel Tome seasonal challenges are timed activities;
+-- Golden Pursuits are promotional event campaigns. Progress is a snapshot at scan time.
+
+local function call(fn, ...)
+    if not fn then return nil end
+    local ok, a, b, c, d, e, f = pcall(fn, ...)
+    if ok then return a, b, c, d, e, f end
+end
+
+local function ScanActivities()
+    local now = GetTimeStamp()
+    local typeNames = {}
+    if TIMED_ACTIVITY_TYPE_DAILY    then typeNames[TIMED_ACTIVITY_TYPE_DAILY]    = "daily"    end
+    if TIMED_ACTIVITY_TYPE_WEEKLY   then typeNames[TIMED_ACTIVITY_TYPE_WEEKLY]   = "weekly"   end
+    if TIMED_ACTIVITY_TYPE_SEASONAL then typeNames[TIMED_ACTIVITY_TYPE_SEASONAL] = "seasonal" end
+
+    local timed, limits = {}, {}
+    if GetNumTimedActivities and (not IsTimedActivitySystemAvailable or call(IsTimedActivitySystemAvailable)) then
+        for i = 1, call(GetNumTimedActivities) or 0 do
+            local aType = call(GetTimedActivityType, i)
+            local cType, cQty = call(GetTimedActivityCurrencyRewardInfo, i)
+            timed[i] = {
+                id          = call(GetTimedActivityId, i),
+                name        = call(GetTimedActivityName, i) or "",
+                description = call(GetTimedActivityDescription, i) or "",
+                type        = typeNames[aType] or tostring(aType),
+                difficulty  = call(GetTimedActivityDifficulty, i),
+                progress    = call(GetTimedActivityProgress, i) or 0,
+                maxProgress = call(GetTimedActivityMaxProgress, i) or 0,
+                endTime     = call(GetTimedActivityEndTimeS, i),  -- unix seconds
+                currencyType = cType,   -- reward, e.g. Seals of Endeavor or Tome Points
+                currencyQty  = cQty,
+                timesClaimed   = call(GetTimedActivityNumTimesClaimed, i),
+                timesClaimable = call(GetTimedActivityTotalNumTimesClaimable, i),
+            }
+        end
+        for aType, name in pairs(typeNames) do
+            limits[name] = {
+                resetTime = call(GetTimedActivityTypeResetTimeS, aType),  -- unix seconds; per-type limit/completed counts were removed in 101051
+            }
+        end
+    end
+
+    local claimedFlag = PROMOTIONAL_EVENTS_REWARD_FLAG_CLAIMED
+    local function claimed(flags)
+        if not (claimedFlag and BitAnd and type(flags) == "number") then return nil end
+        return BitAnd(flags, claimedFlag) ~= 0
+    end
+
+    local campaigns = {}
+    if GetNumActivePromotionalEventCampaigns and not call(IsPromotionalEventSystemLocked) then
+        for c = 1, call(GetNumActivePromotionalEventCampaigns) or 0 do
+            local key = call(GetActivePromotionalEventCampaignKey, c)  -- id64; passed straight back, never stored
+            local campaignId, numActivities, numMilestones, capstoneThreshold = call(GetPromotionalEventCampaignInfo, key)
+            if campaignId and (not ShouldPromotionalEventCampaignBeVisible or call(ShouldPromotionalEventCampaignBeVisible, key)) then
+                local numCompleted, capstoneFlags = call(GetPromotionalEventCampaignProgress, key)
+                local remaining = call(GetSecondsRemainingInPromotionalEventCampaign, key)
+                local camp = {
+                    id                = campaignId,
+                    name              = call(GetPromotionalEventCampaignDisplayName, campaignId) or "",
+                    description       = call(GetPromotionalEventCampaignDescription, campaignId) or "",
+                    numCompleted      = numCompleted or 0,
+                    capstoneThreshold = capstoneThreshold or 0,  -- activities needed for the capstone reward
+                    capstoneClaimed   = claimed(capstoneFlags),
+                    endTime           = remaining and (now + remaining) or nil,
+                    activities        = {},
+                    milestones        = {},
+                }
+                for a = 1, numActivities or 0 do
+                    local actId, actName, actDesc, threshold = call(GetPromotionalEventCampaignActivityInfo, key, a)
+                    local progress, flags = call(GetPromotionalEventCampaignActivityProgress, key, a)
+                    camp.activities[a] = {
+                        id          = actId,
+                        name        = actName or "",
+                        description = actDesc or "",
+                        progress    = progress or 0,
+                        maxProgress = threshold or 0,
+                        claimed     = claimed(flags),
+                    }
+                end
+                for m = 1, numMilestones or 0 do
+                    local threshold = call(GetPromotionalEventCampaignMilestoneInfo, key, m)
+                    camp.milestones[m] = {
+                        threshold = threshold or 0,
+                        claimed   = claimed(call(GetPromotionalEventCampaignMilestoneRewardFlags, key, m)),
+                    }
+                end
+                campaigns[#campaigns + 1] = camp
+            end
+        end
+    end
+
+    -- Tamriel Tome season pass: level, points and the reward track (free and premium components).
+    local tome
+    local TOMES = REWARD_TRACK_TYPE_TAMRIEL_TOMES
+    local tomesEnabled = TOMES and GetInfoForRewardTrack and (not IsTamrielTomesEnabled or call(IsTamrielTomesEnabled))
+    if not tomesEnabled then d("[iasync] Tome: Tamriel Tomes unavailable") end
+    if tomesEnabled then
+        -- Prefer the active reference track; otherwise take the first one with a real track.
+        local refIdx, trackId, currentTier, progressToNext
+        local activeRef = call(GetActiveReferenceTrackIdsForRewardTrackType, TOMES)
+        local candidates = {}
+        if activeRef then candidates[1] = call(GetReferenceTrackIndex, TOMES, activeRef) end
+        for i = 1, call(GetNumReferenceTracksForType, TOMES) or 0 do candidates[#candidates + 1] = i end
+        for _, idx in ipairs(candidates) do
+            local tId, tier, prog = call(GetInfoForRewardTrack, TOMES, idx)
+            if tId and tId > 0 then
+                refIdx, trackId, currentTier, progressToNext = idx, tId, tier, prog
+                break
+            end
+        end
+        if not trackId then
+            d(string.format("[iasync] Tome: no reward track (activeRef=%s, numRefs=%s)",
+                tostring(activeRef), tostring(call(GetNumReferenceTracksForType, TOMES))))
+        end
+        if trackId then
+            local tomeId = call(GetActiveTamrielTomeSeasonDefId)
+            local components = {
+                { key = "primary",   value = REWARD_TRACK_COMPONENT_PRIMARY },
+                { key = "secondary", value = REWARD_TRACK_COMPONENT_SECONDARY },
+            }
+            local function rewardName(rewardId, qty)
+                if not (REWARDS_MANAGER and rewardId and rewardId > 0) then return nil end
+                local ok, name, icon = pcall(function()
+                    local data = REWARDS_MANAGER:GetInfoForReward(rewardId, qty or 1)
+                    return data:GetFormattedName(), data:GetKeyboardIcon()
+                end)
+                if ok then return name, icon end
+            end
+            d(string.format("[iasync] Tome: track %d, level %d", trackId, currentTier or 0))
+            tome = {
+                id             = tomeId,
+                name           = call(GetRewardTrackDisplayName, trackId) or "",
+                trackId        = trackId,
+                tier           = currentTier or 0,     -- current pass level
+                progressToNext = progressToNext or 0,  -- tome points into the current tier
+                endTime        = call(GetActiveTamrielTomeSeasonEndTimeS),
+                premium        = tomeId and TAMRIEL_TOME_PRODUCT_TYPE_PREMIUM and call(HasTamrielTomeProductType, tomeId, TAMRIEL_TOME_PRODUCT_TYPE_PREMIUM) and true or false,
+                premiumPlus    = tomeId and TAMRIEL_TOME_PRODUCT_TYPE_PREMIUM_PLUS and call(HasTamrielTomeProductType, tomeId, TAMRIEL_TOME_PRODUCT_TYPE_PREMIUM_PLUS) and true or false,
+                access         = {},
+                tiers          = {},
+            }
+            for _, comp in ipairs(components) do
+                if comp.value then tome.access[comp.key] = call(HasAccessToRewardTrackComponent, TOMES, refIdx, comp.value) and true or false end
+            end
+            for tier = 1, call(GetTotalNumTiersForRewardTrack, trackId) or 0 do
+                local entry = { totalProgress = call(GetTotalProgressAtRewardTrackTier, trackId, tier) or 0 }
+                for _, comp in ipairs(components) do
+                    if comp.value then
+                        local rewards = {}
+                        for r = 1, call(GetNumRewardsAtRewardTrackTier, trackId, tier, comp.value) or 0 do
+                            local rewardId, amount, _, quality = call(GetTamrielTomesRewardInfo, trackId, tier, comp.value, r)
+                            local name, icon = rewardName(rewardId, amount)
+                            rewards[r] = {
+                                id       = rewardId,
+                                quantity = amount,
+                                quality  = quality,
+                                name     = name,
+                                icon     = icon,
+                                claimed  = call(GetRewardTrackRewardClaimedState, TOMES, refIdx, tier, comp.value, r) and true or false,
+                            }
+                        end
+                        entry[comp.key] = rewards
+                    end
+                end
+                tome.tiers[tier] = entry
+            end
+        end
+    end
+
+    iasync_data.activities = {
+        timed      = timed,
+        limits     = limits,
+        campaigns  = campaigns,
+        tome       = tome,
+        lastUpdate = now,
+    }
+end
+
+-- ── Character details, currencies and crafting knowledge (per character) ───
+
+local CURRENCY_KEYS = {
+    "MONEY", "ALLIANCE_POINTS", "TELVAR_STONES", "WRIT_VOUCHERS", "TRANSMUTE_CRYSTALS", "SEALS",
+    "UNDAUNTED_KEYS", "UNDAUNTED_CRESTS", "ARCHIVAL_FORTUNES", "IMPERIAL_FRAGMENTS", "STYLE_STONES",
+    "TOME_POINTS", "TOME_POINT_CACHES", "TOME_TOKENS", "TOME_CHALLENGE_REROLLS", "TRADE_BARS",
+    "CROWNS", "CROWN_GEMS",
+}
+
+local RESEARCH_CRAFTS = {
+    { key = "blacksmithing",   value = CRAFTING_TYPE_BLACKSMITHING },
+    { key = "clothier",        value = CRAFTING_TYPE_CLOTHIER },
+    { key = "woodworking",     value = CRAFTING_TYPE_WOODWORKING },
+    { key = "jewelrycrafting", value = CRAFTING_TYPE_JEWELRYCRAFTING },
+}
+
+local function ScanCharacterDetails()
+    local charId = tostring(GetCurrentCharacterId())
+    local c = iasync_data.chars[charId]
+    if not c then return end
+    local now = GetTimeStamp()
+
+    -- Basics
+    c.level         = call(GetUnitLevel, "player") or 0
+    c.championPoints = call(GetUnitChampionPoints, "player") or 0
+    c.title         = call(GetUnitTitle, "player") or ""
+    local zoneIndex = call(GetUnitZoneIndex, "player")
+    c.zoneId        = zoneIndex and call(GetZoneId, zoneIndex) or nil
+    c.zone          = call(GetUnitZone, "player") or ""
+    local inv, invMax, sta, staMax, spd, spdMax = call(GetRidingStats)
+    c.riding = { inventory = inv, inventoryMax = invMax, stamina = sta, staminaMax = staMax, speed = spd, speedMax = spdMax }
+    local avaRank = call(GetUnitAvARank, "player")
+    c.avaRank     = avaRank
+    c.avaRankName = avaRank and call(GetAvARankName, GetUnitGender("player"), avaRank) or nil
+
+    c.guilds = {}
+    for i = 1, call(GetNumGuilds) or 0 do
+        local guildId = call(GetGuildId, i)
+        if guildId then
+            local memberIndex = call(GetPlayerGuildMemberIndex, guildId)
+            local rankIndex = memberIndex and select(3, call(GetGuildMemberInfo, guildId, memberIndex)) or nil
+            c.guilds[i] = {
+                name      = call(GetGuildName, guildId) or "",
+                rankIndex = rankIndex,
+                -- GetFinalGuildRankName (ZO Lua) falls back to the default rank name when no custom name is set.
+                rankName  = rankIndex and (call(GetFinalGuildRankName, guildId, rankIndex) or call(GetGuildRankCustomName, guildId, rankIndex)) or nil,
+            }
+        end
+    end
+
+    -- Currencies: character-held ones per character; account-held and banked ones account-wide.
+    c.currencies = {}
+    iasync_data.currencies = iasync_data.currencies or {}
+    for _, key in ipairs(CURRENCY_KEYS) do
+        local curt = _G["CURT_" .. key]
+        if curt and (not IsCurrencyValid or call(IsCurrencyValid, curt)) then
+            local location = call(GetCurrencyPlayerStoredLocation, curt)
+            local entry = iasync_data.currencies[key] or {}
+            entry.name = call(GetCurrencyName, curt, false, false) or key
+            if location == CURRENCY_LOCATION_ACCOUNT then
+                entry.account = call(GetCurrencyAmount, curt, CURRENCY_LOCATION_ACCOUNT)
+            else
+                c.currencies[key] = call(GetCurrencyAmount, curt, CURRENCY_LOCATION_CHARACTER)
+                entry.bank = call(GetCurrencyAmount, curt, CURRENCY_LOCATION_BANK)
+            end
+            iasync_data.currencies[key] = entry
+        end
+    end
+
+    -- Trait research
+    c.research = {}
+    for _, craft in ipairs(RESEARCH_CRAFTS) do
+        if craft.value then
+            local lines = {}
+            for line = 1, call(GetNumSmithingResearchLines, craft.value) or 0 do
+                local name, icon, numTraits = call(GetSmithingResearchLineInfo, craft.value, line)
+                local entry = { name = name or "", icon = icon, numTraits = numTraits or 0, known = {}, researching = {} }
+                for t = 1, numTraits or 0 do
+                    local traitType, _, known = call(GetSmithingResearchLineTraitInfo, craft.value, line, t)
+                    if known then
+                        entry.known[#entry.known + 1] = traitType
+                    else
+                        local _, remaining = call(GetSmithingResearchLineTraitTimes, craft.value, line, t)
+                        if remaining and remaining > 0 then
+                            entry.researching[#entry.researching + 1] = { traitType = traitType, endTime = now + remaining }
+                        end
+                    end
+                end
+                lines[line] = entry
+            end
+            c.research[craft.key] = lines
+        end
+    end
+
+    -- Motifs from the Lore Library's "Crafting Motifs" category: one collection per style, one book per chapter.
+    -- shortcut: matches the English category name, so other client languages get no motifs; match by categoryId once known.
+    c.motifs = {}
+    for cat = 1, call(GetNumLoreCategories) or 0 do
+        local catName, numCollections = call(GetLoreCategoryInfo, cat)
+        if catName == "Crafting Motifs" then
+            for col = 1, numCollections or 0 do
+                local name, _, numKnown, totalBooks, hidden, _, collectionId = call(GetLoreCollectionInfo, cat, col)
+                if not hidden and (numKnown or 0) > 0 then
+                    local books = {}
+                    for b = 1, totalBooks or 0 do
+                        local title, _, known = call(GetLoreBookInfo, cat, col, b)
+                        books[b] = { title = title or "", known = known and true or false }
+                    end
+                    c.motifs[collectionId or col] = { name = name or "", numKnown = numKnown, total = totalBooks or 0, books = books }
+                end
+            end
+        end
+    end
+
+    -- Recipes: known recipe names per recipe list.
+    c.recipes = {}
+    for list = 1, call(GetNumRecipeLists) or 0 do
+        local listName, numRecipes = call(GetRecipeListInfo, list)
+        local known = {}
+        for r = 1, numRecipes or 0 do
+            local isKnown, name = call(GetRecipeInfo, list, r)
+            if isKnown and name and name ~= "" then known[#known + 1] = name end
+        end
+        c.recipes[list] = { name = listName or "", total = numRecipes or 0, known = known }
+    end
+end
+
+-- ── Scribing (per character) and antiquities (account-wide) ────────────────
+
+local function ScanScribing()
+    if not GetNumCraftedAbilities or (IsScribingEnabled and not call(IsScribingEnabled)) then return end
+    local c = iasync_data.chars[tostring(GetCurrentCharacterId())]
+    if not c then return end
+    local slots = {
+        { key = "primary",   value = SCRIBING_SLOT_PRIMARY },
+        { key = "secondary", value = SCRIBING_SLOT_SECONDARY },
+        { key = "tertiary",  value = SCRIBING_SLOT_TERTIARY },
+    }
+    local grimoires, scripts = {}, {}
+    for i = 1, call(GetNumCraftedAbilities) or 0 do
+        local craftedId = call(GetCraftedAbilityIdAtIndex, i)
+        local abilityId = craftedId and call(GetAbilityIdForCraftedAbilityId, craftedId)
+        local name = craftedId and call(GetCraftedAbilityDisplayName, craftedId)
+        -- Skip placeholder entries with no name. abilityId can be 0 for real grimoires, so it is not the test.
+        if name and name ~= "" then
+            local g = {
+                name     = name,
+                icon     = call(GetCraftedAbilityIcon, craftedId),
+                abilityId = abilityId,
+                unlocked = call(IsCraftedAbilityUnlocked, craftedId) and true or false,
+                scribed  = call(IsCraftedAbilityScribed, craftedId) and true or false,
+                scripts  = {},
+            }
+            for _, slot in ipairs(slots) do
+                if slot.value then
+                    local ids = {}
+                    for s = 1, call(GetNumScriptsInSlotForCraftedAbility, craftedId, slot.value) or 0 do
+                        local scriptId = call(GetScriptIdAtSlotIndexForCraftedAbility, craftedId, slot.value, s)
+                        if scriptId then
+                            ids[#ids + 1] = scriptId
+                            if not scripts[scriptId] then
+                                scripts[scriptId] = {
+                                    name     = call(GetCraftedAbilityScriptDisplayName, scriptId) or "",
+                                    unlocked = call(IsCraftedAbilityScriptUnlocked, scriptId) and true or false,
+                                }
+                            end
+                        end
+                    end
+                    g.scripts[slot.key] = ids
+                end
+            end
+            grimoires[craftedId] = g
+        end
+    end
+    c.scribing = { grimoires = grimoires, scripts = scripts, lastUpdate = GetTimeStamp() }
+end
+
+local function ScanAntiquities()
+    if not GetNextAntiquityId then return end
+    local now = GetTimeStamp()
+    local antiquities, sets, zones = {}, {}, {}
+    local id = call(GetNextAntiquityId)
+    while id do
+        local setId = call(GetAntiquitySetId, id)
+        if setId and setId > 0 and not sets[setId] then sets[setId] = call(GetAntiquitySetName, setId) or "" end
+        local zoneId = call(GetAntiquityZoneId, id)
+        if zoneId and zoneId > 0 and not zones[zoneId] then zones[zoneId] = call(GetZoneNameById, zoneId) or "" end
+        local hasLead = call(DoesAntiquityHaveLead, id) and true or false
+        local leadLeft = hasLead and call(GetAntiquityLeadTimeRemainingSeconds, id) or nil
+        antiquities[id] = {
+            name         = call(GetAntiquityName, id) or "",
+            icon         = call(GetAntiquityIcon, id),
+            quality      = call(GetAntiquityQuality, id),
+            setId        = (setId and setId > 0) and setId or nil,
+            zoneId       = zoneId,
+            repeatable   = call(IsAntiquityRepeatable, id) and true or false,
+            numRecovered = call(GetNumAntiquitiesRecovered, id) or 0,
+            loreAcquired = call(GetNumAntiquityLoreEntriesAcquired, id) or 0,
+            loreTotal    = call(GetNumAntiquityLoreEntries, id) or 0,
+            hasLead      = hasLead,
+            leadExpires  = (leadLeft and leadLeft > 0) and (now + leadLeft) or nil,
+        }
+        id = call(GetNextAntiquityId, id)
+    end
+    iasync_data.antiquities = { items = antiquities, sets = sets, zones = zones, lastUpdate = now }
+end
+
 -- ── UI colours ──────────────────────────────────────────────────────────────
 -- Interface colours live in the client, not in the UI source; ESO Armory uses
 -- them to draw its Achievements and Collections tabs in the in-game colours.
@@ -1099,11 +1486,17 @@ local function OnPlayerActivated()
     zo_callLater(function()
         ScanCharacterBags()
         ResolveBuildNames()
+        ScanCharacterDetails()
     end, 2000)
+    zo_callLater(function()
+        ScanScribing()
+        ScanAntiquities()
+    end, 6000)
     zo_callLater(ScanHouseChests, 3000)
     zo_callLater(ScanAchievements, 5000)
     zo_callLater(ScanStickerbook, 7000)
     zo_callLater(ScanCollectibles, 9000)
+    zo_callLater(ScanActivities, 4000)
     ScanUiColors()
 end
 
@@ -1144,6 +1537,7 @@ local function OnAddonLoaded(_, addonName)
     iasync_data.achievements = iasync_data.achievements or { account = {} }
     iasync_data.stickerbook  = iasync_data.stickerbook  or { sets = {} }
     iasync_data.collectibles = iasync_data.collectibles or { categories = {}, items = {} }
+    iasync_data.activities   = iasync_data.activities   or { timed = {}, limits = {}, campaigns = {} }
     EVENT_MANAGER:UnregisterForEvent(ADDON_NAME .. "_Load", EVENT_ADD_ON_LOADED)
 end
 
@@ -1160,6 +1554,26 @@ if EVENT_ACHIEVEMENTS_UPDATED then
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_AchUpd", EVENT_ACHIEVEMENTS_UPDATED, ScanAchievements)
 end
 
+-- Activity progress events can fire on every kill; rescan once, 2 s after the burst.
+local activityRescanPending = false
+local function OnActivityChanged()
+    if activityRescanPending then return end
+    activityRescanPending = true
+    zo_callLater(function()
+        activityRescanPending = false
+        ScanActivities()
+    end, 2000)
+end
+local activityEvents = {  -- may contain nils on older clients, so index 1..5 rather than ipairs
+    EVENT_TIMED_ACTIVITIES_UPDATED, EVENT_TIMED_ACTIVITY_PROGRESS_UPDATED,
+    EVENT_PROMOTIONAL_EVENTS_CAMPAIGNS_UPDATED, EVENT_PROMOTIONAL_EVENTS_ACTIVITY_PROGRESS_UPDATED,
+    EVENT_PROMOTIONAL_EVENTS_REWARDS_CLAIMED,
+}
+for i = 1, 5 do
+    local ev = activityEvents[i]
+    if ev then EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Act" .. i, ev, OnActivityChanged) end
+end
+
 -- Manual trigger for testing: /script iasync_scan()
 function iasync_scan()
     ScanCharacterBags()
@@ -1167,5 +1581,9 @@ function iasync_scan()
     ScanAchievements()
     ScanStickerbook()
     ScanCollectibles()
+    ScanActivities()
+    ScanCharacterDetails()
+    ScanScribing()
+    ScanAntiquities()
     ScanUiColors()
 end

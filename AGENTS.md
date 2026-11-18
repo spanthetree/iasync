@@ -127,6 +127,10 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
   The `sets` table is keyed by numeric setId but serialises to JSON with string keys. `data_processor.py` reads this via `process_iasync_stickerbook(raw)` and serves it at `GET /api/stickerbook`.
 
 - **`iasync_data.collectibles` is account-wide.** `items` is keyed by collectibleId (string keys in JSON); each item's `cat`/`sub` index into `categories[cat].subcats[sub]` (`sub = 0` means directly under the top level). Use `categories[i].specialization` to split the Collections tabs (housing, outfit styles, Tales of Tribute). `patrons[patronId]` adds Tales of Tribute patron names, icons and category; join to `items` through `collectibleId`. Tribute card upgrade rewards carry `name` = "<upgraded card> (<patron>)" from `GetTributePatronDockCardInfoByIndex` + `GetTributeCardName`.
+- **`iasync_data.activities` is a snapshot.** Progress is as of `lastUpdate`; `endTime`/`resetTime` are unix seconds, so a consumer can tell when a snapshot has expired. Golden Pursuits campaign keys are id64 userdata: pass them straight back to the API and never store them. Reward `claimed` flags come from `BitAnd(flags, PROMOTIONAL_EVENTS_REWARD_FLAG_CLAIMED)`. `tome` is the `REWARD_TRACK_TYPE_TAMRIEL_TOMES` reward track; reward names and icons come from `REWARDS_MANAGER:GetInfoForReward(id, qty)` (pcall'd). Which component (`primary`/`secondary`) is the free track is inferred from `access`, not documented by ZOS.
+- **Character details, currencies, research, motifs and recipes are per character** (`ScanCharacterDetails`, run right after `ScanCharacterBags`). Account-held currencies (e.g. Seals, Tome Points) and banked amounts go in the top-level `currencies`. `c.gold/ap/tv/wv` stay for backwards compatibility.
+- **Motifs come from the Lore Library** "Crafting Motifs" category (`GetLoreCollectionInfo`/`GetLoreBookInfo`), one collection per style and one book per chapter. `IsSmithingStyleKnown(styleId, ITEM_STYLE_CHAPTER_*)` does **not** work for chapters: it missed every partly known motif. The category is matched by its English name.
+- **Scribing is per character** (`chars[id].scribing`, `ScanScribing` 6 s after login): grimoires and scripts unlock per character. **`antiquities` is account-wide** (`ScanAntiquities`). Antiquity `leadExpires` is unix seconds.
 - **`build_mundus` is `nil` when no stone is active**, not an empty table. When stones are active it is a Lua sequential table (e.g. `{ "The Lady" }`), which serialises to JSON as `{"1": "The Lady"}`. `data_processor.py` handles both dict and list forms via `list(build_mundus.values()) if isinstance(..., dict) else list(...)`.
 - **House data is keyed by house ID (from `GetCurrentZoneHouseId`) as a string**, e.g. `"66"`. Only houses the player owns are scanned (`IsOwnerOfCurrentHouse`). House storage bags are account-wide, so every owned house holds the same `chests`; consumers must count each chest bag ID once. The same house ID is used across sessions and characters.
 - **Achievement entries now keep line-chain and attribution metadata.** Store `lineBaseId`, `linePreviousId`, `lineNextId`, `completedByCharId`, and `completedByCharName` with the existing achievement payload so the web app can group lines and show who earned a completion.
@@ -136,13 +140,16 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
 ```
 EVENT_ADD_ON_LOADED       → OnAddonLoaded    (initialise iasync_data structure, init stickerbook table)
 EVENT_PLAYER_ACTIVATED    → OnPlayerActivated  (fires on login, /reloadui, and zone changes)
-    └─ zo_callLater 2 s   → ScanCharacterBags + ResolveBuildNames
+    └─ zo_callLater 2 s   → ScanCharacterBags + ResolveBuildNames + ScanCharacterDetails
     └─ zo_callLater 3 s   → ScanHouseChests (no-op if not in a house)
     └─ zo_callLater 7 s   → ScanStickerbook (account-wide; 7 s gives ITEM_SET_COLLECTIONS_DATA_MANAGER time to populate)
+    └─ zo_callLater 4 s   → ScanActivities (account-wide)
+    └─ zo_callLater 6 s   → ScanScribing (per character) + ScanAntiquities (account-wide)
     └─ zo_callLater 9 s   → ScanCollectibles (account-wide)
 EVENT_ACHIEVEMENTS_UPDATED → ScanAchievements (refresh achievement state when ESO rebuilds it mid-session)
 EVENT_ACHIEVEMENT_AWARDED → OnAchievementAwarded (args: eventCode, name, points, achievementId, link)
 EVENT_OPEN_BANK           → ScanBankBags
+EVENT_TIMED_ACTIVIT* / EVENT_PROMOTIONAL_EVENTS_* → OnActivityChanged (ScanActivities 2 s after the burst)
 EVENT_GUILD_BANK_ITEMS_READY → ScanGuildBank (selected guild's items loaded; again after switching guilds)
 EVENT_GUILD_BANK_ITEM_ADDED / _REMOVED / _UPDATED_QUANTITY → OnGuildBankChanged (rescan 500 ms after the burst)
 EVENT_INVENTORY_SINGLE_SLOT_UPDATE → OnInventorySlotUpdate → UpdateSlot
@@ -159,7 +166,7 @@ When you need to skip to the next iteration of an outer loop, extract the loop b
 
 ## Things to watch out for
 
-**API availability.** Some ESO globals (`HOTBAR_CATEGORY_PRIMARY`, `BAG_HOUSE_BANK_ONE`, `GetItemDisplayQuality`) were added or renamed across patches. The addon uses `or`-fallbacks throughout (`HOTBAR_CATEGORY_PRIMARY or 1`). When adding new API calls, check whether they exist on the target APIVersion (currently `101051`; authoritative list: `ESOUIDocumentation.txt` in github.com/esoui/esoui) and add a guard if needed.
+**API availability.** Some ESO globals (`HOTBAR_CATEGORY_PRIMARY`, `BAG_HOUSE_BANK_ONE`, `GetItemDisplayQuality`) were added or renamed across patches. The addon uses `or`-fallbacks throughout (`HOTBAR_CATEGORY_PRIMARY or 1`). When adding new API calls, check whether they exist on the target APIVersion (currently `101051`; authoritative list: `ESOUIDocumentation.txt` on the **`live`** branch of github.com/esoui/esoui; `master` is stale at 101041 and lacks Golden Pursuits) and add a guard if needed.
 
 **`GetAbilityName` returns `""` for out-of-session abilities.** If a Templar logs in and their bars contain Sorcerer skills from a previous character, those ability IDs return empty strings. This is expected — names are resolved only for the current character's loaded skill data. Do not attempt to call `GetAbilityName` for IDs stored from other characters.
 
