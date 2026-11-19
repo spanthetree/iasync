@@ -433,6 +433,150 @@ local function ScanBuild(c)
     c.build_cp = { earned = cpEarned, slots = cpSlots }
 end
 
+-- ── In-game Armory builds (logged-in character only) ─────────────────────────
+
+local ARMORY_SLOT_STATES = {
+    [ARMORY_BUILD_EQUIP_SLOT_STATE_VALID        or -1] = "valid",
+    [ARMORY_BUILD_EQUIP_SLOT_STATE_INACCESSIBLE or -2] = "inaccessible",
+    [ARMORY_BUILD_EQUIP_SLOT_STATE_MISSING      or -3] = "missing",
+}
+local CURSE_NAMES = {
+    [CURSE_TYPE_VAMPIRE  or -1] = "vampire",
+    [CURSE_TYPE_WEREWOLF or -2] = "werewolf",
+}
+
+local function ScanArmoryBuild(i)
+    local function get(fn, ...)
+        local ok, a, b, c3 = pcall(fn, ...)
+        if ok then return a, b, c3 end
+    end
+
+    local iconIndex = get(GetArmoryBuildIconIndex, i)
+    local build = {
+        name        = get(GetArmoryBuildName, i) or "",
+        iconIndex   = iconIndex,
+        icon        = iconIndex and string.format(ZO_ARMORY_BUILD_ICON_TEXTURE_FORMATTER
+                          or "EsoUI/Art/Armory/BuildIcons/buildIcon_%d.dds", iconIndex) or nil,
+        skillPoints = get(GetArmoryBuildSkillsTotalSpentPoints, i) or 0,
+        curse       = CURSE_NAMES[get(GetArmoryBuildCurseType, i)] or "none",
+        outfitIndex = get(GetArmoryBuildEquippedOutfitIndex, i),
+    }
+
+    -- Outfit name as the Armory shows it (ZO_ArmoryBuildData:GetEquippedOutfitName); absent with no outfit.
+    if build.outfitIndex then
+        local outfit = ZO_OUTFIT_MANAGER and get(ZO_OUTFIT_MANAGER.GetOutfitManipulator, ZO_OUTFIT_MANAGER,
+            GAMEPLAY_ACTOR_CATEGORY_PLAYER or 0, build.outfitIndex)
+        build.outfitName = (outfit and get(outfit.GetOutfitName, outfit)) or GetString(SI_NO_OUTFIT_EQUIP_ENTRY)
+    end
+
+    -- Gear is keyed by equip slot, the same integers as the BAG_WORN slot index. Empty slots are omitted.
+    local gear = {}
+    for equipSlot = 0, GetBagSize(BAG_WORN) - 1 do
+        local state, bagId, slotIndex = get(GetArmoryBuildEquipSlotInfo, i, equipSlot)
+        local stateName = ARMORY_SLOT_STATES[state]
+        if stateName then
+            local entry = {}
+            if bagId and slotIndex then
+                local ok, data = pcall(CaptureSlot, bagId, slotIndex)
+                if ok and data then entry = data end
+                -- Same rule as the base UI: house chests are out of reach of a restore.
+                if stateName == "valid" and IsHouseBag(bagId) then stateName = "inaccessible" end
+            end
+            entry.state, entry.bagId, entry.slotIndex = stateName, bagId, slotIndex
+            gear[equipSlot] = entry
+        end
+    end
+    build.gear = gear
+
+    -- bars: ids as saved; effectiveBars: morph/scribed ids the game would cast.
+    local bars, effectiveBars = {}, {}
+    for _, cfg in ipairs({ { "primary", HOTBAR_CATEGORY_PRIMARY or 1 }, { "backup", HOTBAR_CATEGORY_BACKUP or 2 } }) do
+        local bar, eff = {}, {}
+        for slot = 3, 8 do
+            local aid = get(GetArmoryBuildSlotBoundId, i, slot, cfg[2])
+            if aid and aid ~= 0 then
+                bar[slot] = aid
+                local effId = GetEffectiveAbilityIdForAbilityOnHotbarForArmoryBuild
+                    and get(GetEffectiveAbilityIdForAbilityOnHotbarForArmoryBuild, aid, i, cfg[2])
+                eff[slot] = (effId and effId ~= 0) and effId or aid
+            end
+        end
+        bars[cfg[1]], effectiveBars[cfg[1]] = bar, eff
+    end
+    build.bars, build.effectiveBars = bars, effectiveBars
+
+    local cpSlots = {}
+    for slot = 1, 12 do
+        local aid = get(GetArmoryBuildSlotBoundId, i, slot, HOTBAR_CATEGORY_CHAMPION)
+        if aid and aid ~= 0 then cpSlots[slot] = aid end
+    end
+    local disciplines = {}
+    for discIndex = 1, (get(GetNumChampionDisciplines) or 0) do
+        local discId = get(GetChampionDisciplineId, discIndex)
+        if discId then
+            disciplines[discId] = {
+                name  = get(GetChampionDisciplineName, discId) or "",
+                spent = get(GetArmoryBuildChampionSpentPointsByDiscipline, i, discId) or 0,
+            }
+        end
+    end
+    build.cp = { slots = cpSlots, disciplines = disciplines }
+
+    build.attributes = {
+        health  = get(GetArmoryBuildAttributeSpentPoints, i, ATTRIBUTE_HEALTH  or 1) or 0,
+        magicka = get(GetArmoryBuildAttributeSpentPoints, i, ATTRIBUTE_MAGICKA or 2) or 0,
+        stamina = get(GetArmoryBuildAttributeSpentPoints, i, ATTRIBUTE_STAMINA or 3) or 0,
+    }
+
+    -- Same shape as build_mundus: a sequential list of stone names, nil when none.
+    local mundus = {}
+    for _, fn in ipairs({ GetArmoryBuildPrimaryMundusStone, GetArmoryBuildSecondaryMundusStone }) do
+        local stone = get(fn, i)
+        if stone and stone ~= (MUNDUS_STONE_INVALID or 0) then
+            local stoneName = GetString("SI_MUNDUSSTONE", stone)
+            if stoneName and stoneName ~= "" then mundus[#mundus + 1] = stoneName end
+        end
+    end
+    build.mundus = (#mundus > 0) and mundus or nil
+    return build
+end
+
+local function ScanArmoryBuilds()
+    if not GetNumUnlockedArmoryBuilds then return end
+    local ok, count = pcall(GetNumUnlockedArmoryBuilds)
+    -- Keep the last good scan if the API reports nothing (e.g. data not loaded yet).
+    if not ok or not count or count < 1 then return end
+    local charId = tostring(GetCurrentCharacterId())
+    local c = iasync_data.chars[charId]
+    if not c then return end
+    local builds, barsLoaded = {}, false
+    for i = 1, count do
+        local okBuild, build = pcall(ScanArmoryBuild, i)
+        if okBuild then
+            builds[i] = build
+            if next(build.bars.primary) or next(build.bars.backup) or next(build.cp.slots) then barsLoaded = true end
+        else
+            d(string.format("[iasync] Armory build %d scan failed: %s", i, tostring(build)))
+        end
+    end
+    -- GetArmoryBuildSlotBoundId returns 0 until the client has visited an Armory station this session.
+    -- If any build has a skill or star, the data is loaded and empty builds really are empty; otherwise keep the old bars.
+    -- shortcut: if every build was truly saved with no skills and no stars, it looks like "not loaded" and old bars stay.
+    local old, now = c.armoryBuilds or {}, GetTimeStamp()
+    for i, build in pairs(builds) do
+        local prev = old[i]
+        if barsLoaded then
+            build.barsUpdate = now
+        elseif type(prev) == "table" and prev.bars then
+            build.bars, build.effectiveBars, build.barsUpdate = prev.bars, prev.effectiveBars, prev.barsUpdate
+            build.cp.slots = (prev.cp and prev.cp.slots) or build.cp.slots
+        end
+    end
+    c.armoryBuilds = builds
+    c.armoryBuildsUpdate = GetTimeStamp()
+    d(string.format("[iasync] %d Armory build(s) scanned", count))
+end
+
 -- ── Character bags (on login) ────────────────────────────────────────────────
 
 local function ScanCharacterBags()
@@ -644,6 +788,10 @@ local function ResolveBuildNames()
     end
 
     resolveBars(c.build_bars)
+    for _, build in pairs(c.armoryBuilds or {}) do
+        resolveBars(build.bars)
+        resolveBars(build.effectiveBars)
+    end
     -- Only the logged-in character's saved setups can be resolved in this session.
     local defaults = WizardsWardrobeSV and WizardsWardrobeSV.Default
     local account = defaults and defaults[GetDisplayName()]
@@ -1561,6 +1709,7 @@ end
 local function OnPlayerActivated()
     zo_callLater(function()
         ScanCharacterBags()
+        ScanArmoryBuilds()
         ResolveBuildNames()
         ScanCharacterDetails()
     end, 2000)
@@ -1631,6 +1780,15 @@ if EVENT_ACHIEVEMENTS_UPDATED then
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_AchUpd", EVENT_ACHIEVEMENTS_UPDATED, ScanAchievements)
 end
 
+-- Saving, restoring or renaming an Armory build: rescan all builds (there are only a handful).
+local function OnArmoryChanged()
+    ScanArmoryBuilds()
+    ResolveBuildNames()
+end
+for i, ev in ipairs({ "EVENT_ARMORY_BUILD_SAVE_RESPONSE", "EVENT_ARMORY_BUILD_RESTORE_RESPONSE", "EVENT_ARMORY_BUILD_UPDATED" }) do
+    if _G[ev] then EVENT_MANAGER:RegisterForEvent(ADDON_NAME .. "_Armory" .. i, _G[ev], OnArmoryChanged) end
+end
+
 -- Activity progress events can fire on every kill; rescan once, 2 s after the burst.
 local activityRescanPending = false
 local function OnActivityChanged()
@@ -1654,6 +1812,7 @@ end
 -- Manual trigger for testing: /script iasync_scan()
 function iasync_scan()
     ScanCharacterBags()
+    ScanArmoryBuilds()
     ResolveBuildNames()
     ScanAchievements()
     ScanStickerbook()
