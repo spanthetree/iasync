@@ -25,7 +25,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - Per-character ability icon paths from `GetAbilityIcon`, keyed by ability ID, for ESO Armory 0.2.0-beta.9.
-- Name and icon resolution for the logged-in character's saved Wizards Wardrobe skills, including skills absent from equipped bars.
+- Name and icon resolution for the logged-in character's saved [Wizard's Wardrobe](https://www.esoui.com/downloads/info3170-WizardsWardrobe.html) skills, including skills absent from equipped bars.
 
 ### Fixed
 

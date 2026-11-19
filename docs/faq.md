@@ -36,6 +36,13 @@ The game writes the file to disk when you log out, switch characters or type
 `/reloadui`, never while you play. Until then the newest data exists only in
 memory.
 
+## Does it need other addons?
+
+No. It has no dependencies. If [Wizard's Wardrobe](https://www.esoui.com/downloads/info3170-WizardsWardrobe.html) is installed, iasync also reads
+the logged-in character's saved Wizard's Wardrobe setups, without changing
+them, so the skills in those setups get names and icons in
+[ESO Armory](https://github.com/spanthetree/eso-armory).
+
 ## Why do I have to log in to every character?
 
 ESO's API only exposes the character you are logged in as. iasync keeps each

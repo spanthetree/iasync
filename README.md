@@ -107,9 +107,17 @@ chat.
 | [Changelog](CHANGELOG.md) | What changed in each release |
 | [AGENTS.md](AGENTS.md) | Coding guide: API notes, invariants, event flow |
 
+## Related projects
+
+| | |
+|---|---|
+| [ESO Armory](https://github.com/spanthetree/eso-armory) | The web app that reads this file and shows your account in a browser |
+| [Wizard's Wardrobe](https://www.esoui.com/downloads/info3170-WizardsWardrobe.html) | Optional. If installed, iasync reads the logged-in character's saved setups, read-only, to name and icon the skills in them |
+| [esoui/esoui](https://github.com/esoui/esoui) | ZeniMax's UI source and `ESOUIDocumentation.txt`, the reference for every API iasync calls. The Armory's "inaccessible" rule for house-chest items follows its base UI |
+
 ## Development
 
-iasync is one Lua file, `iasync.lua`, running on ESO's Lua 5.1. Check syntax
+iasync is one Lua file, `iasync.lua`, running on ESO's Lua 5.1. The API it targets is documented in `ESOUIDocumentation.txt` on the `live` branch of [esoui/esoui](https://github.com/esoui/esoui). Check syntax
 and run the mocked tests from the repository root:
 
 ```bash
