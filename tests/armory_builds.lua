@@ -84,6 +84,19 @@ b = iasync_data.chars["123"].armoryBuilds[1]
 assert(b.name == "Renamed 1" and b.bars.primary[3] == 100 and b.effectiveBars.primary[3] == 101)
 assert(b.cp.slots[1] == 9 and b.cp.disciplines[4].spent == 210 and b.barsUpdate == 7)
 
+-- An item that disappears keeps what the last valid scan saw, across later scans.
+GetArmoryBuildEquipSlotInfo = function(i, slot)
+    if slot == 0 then return ARMORY_BUILD_EQUIP_SLOT_STATE_MISSING, 1, 0 end
+    return ARMORY_BUILD_EQUIP_SLOT_STATE_EMPTY
+end
+scan()
+b = iasync_data.chars["123"].armoryBuilds[1]
+assert(b.gear[0].state == "missing" and b.gear[0].lastKnown.name == "Item 1/12" and b.gear[0].lastKnown.state == nil)
+assert(b.gear[0].bagId == nil and b.gear[0].link == nil and b.gear[0].lastKnown.bagId == nil)
+scan()
+assert(iasync_data.chars["123"].armoryBuilds[1].gear[0].lastKnown.name == "Item 1/12")
+assert(iasync_data.chars["123"].armoryBuilds[1].gear[2] == nil)  -- slot now empty: nothing carried over
+
 numBuilds = 0
 scan()
 assert(iasync_data.chars["123"].armoryBuilds[1].name == "Renamed 1")

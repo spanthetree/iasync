@@ -567,6 +567,21 @@ local function ScanArmoryBuilds()
     local old, now = c.armoryBuilds or {}, GetTimeStamp()
     for i, build in pairs(builds) do
         local prev = old[i]
+        -- The game gives no item details for missing gear; keep what an earlier scan saw in that slot.
+        local prevGear = type(prev) == "table" and prev.gear or {}
+        for slot, entry in pairs(build.gear) do
+            local seen = prevGear[slot]
+            if entry.state == "missing" and type(seen) == "table" then
+                if seen.state ~= "missing" and seen.link then
+                    local item = {}
+                    for k, v in pairs(seen) do item[k] = v end
+                    item.state, item.bagId, item.slotIndex, item.lastKnown = nil, nil, nil, nil
+                    entry.lastKnown = item
+                else
+                    entry.lastKnown = seen.lastKnown
+                end
+            end
+        end
         if barsLoaded then
             build.barsUpdate = now
         elseif type(prev) == "table" and prev.bars then
