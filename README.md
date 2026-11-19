@@ -16,6 +16,7 @@ iasync is read-only. It never changes your inventory, builds or any other game s
 
 - **Characters**: equipped gear and backpack, with trait, enchant, set, quality, armor weight and weapon type for every item. Also currencies, backpack capacity, and name, race, class, alliance and gender.
 - **Builds**: front, back and werewolf skill bars (scribed skills resolved to their base ability), slotted Champion Point stars, attribute allocation, and active Mundus Stone(s).
+- **Armory builds**: every saved in-game Armory build for the logged-in character: name, icon, gear (with where each item now is, or whether it is missing), front and back bars, slotted and per-discipline Champion Points, attributes, skill points, Mundus Stone(s), vampire/werewolf curse and outfit.
 - **Skill metadata**: names and icon texture paths for equipped skills and the logged-in character's saved Wizards Wardrobe setups. Successful lookups are retained across scans and reloads.
 - **Storage**: personal bank, ESO Plus bank, craft bag, house storage chests and guild bank.
 - **Achievements**: every achievement with criteria progress, rewards, completion date and the character who earned it, split into account-wide and per-character. Includes category point totals that match the in-game summary.
@@ -59,6 +60,7 @@ To rescan the current character without reloading, run this in chat:
 | Trigger | Data |
 |---|---|
 | Login, `/reloadui`, zone change | Character bags, build, currencies (after 2 s), house chests if in a house (3 s), achievements (5 s), set collections (7 s) |
+| Saving, restoring or renaming an Armory build | All Armory builds for the logged-in character |
 | Opening the bank | Bank, ESO Plus bank, craft bag, bank currencies |
 | Viewing a guild bank (and depositing or withdrawing) | That guild's bank contents |
 | Any inventory change | The changed slot, in real time |
@@ -106,7 +108,27 @@ iasync_data = {
       },
       build_mundus = { "Stone Name", ... },   -- nil if none active; Lua sequential table
       build_cp = { earned = N, slots = { [slot] = abilityId } },
-      abilityNames = { [abilityId] = "Name" },  -- equipped and saved skills, retained across scans
+      armoryBuilds = {                          -- in-game Armory, logged-in character only; kept if the API reports 0 builds
+        [buildIndex] = {
+          name, iconIndex, icon,                -- icon = "EsoUI/Art/Armory/BuildIcons/buildIcon_<n>.dds"
+          skillPoints,                          -- total only; no per-skill-line breakdown
+          curse,                                -- "none" | "vampire" | "werewolf"
+          outfitIndex,                          -- nil when no outfit
+          gear = { [equipSlot] = {              -- equipSlot = BAG_WORN slot index; empty slots omitted
+            state,                              -- "valid" | "inaccessible" (house chest) | "missing" (sold/deconstructed)
+            bagId, slotIndex,                   -- where the item is now; nil when missing
+            link, name, traitType, ...,         -- CaptureSlot fields, only when the item can be read
+          } },
+          bars = { primary = { [3..8] = abilityId }, backup = { ... } },           -- ids as saved
+          effectiveBars = { primary = { [3..8] = abilityId }, backup = { ... } },  -- morphed/scribed ids
+          cp = { slots = { [1..12] = championSkillId },
+                 disciplines = { [disciplineId] = { name, spent } } },  -- no per-star allocation
+          attributes = { health, magicka, stamina },
+          mundus = { "Stone Name", ... },       -- nil if none; same shape as build_mundus
+        },
+      },
+      armoryBuildsUpdate,                       -- unix timestamp of the last Armory scan
+      abilityNames = { [abilityId] = "Name" },  -- equipped, Armory and saved skills, retained across scans
       abilityIcons = { [abilityId] = "/esoui/art/icons/ability_...dds" },
       cpNames      = { [abilityId] = "Name" },
       cpDescriptions = { [championSkillId] = "Description" },  -- slotted stars, from GetChampionSkillDescription at current points
@@ -227,6 +249,7 @@ Lua tables with integer keys (bag IDs, slot IDs, set IDs) become string keys whe
 
 - **Guild banks**: each guild bank is captured only after you view it, and only if you have permission to see its contents.
 - **Ability names**: names are resolved only for the logged-in character, because `GetAbilityName` cannot resolve another class's abilities.
+- **Armory builds**: only the logged-in character's builds can be read, so log into each character once. An item sold or deconstructed since the build was saved reads `missing` with no link.
 - **Achievement attribution**: the character who earned an account-wide achievement is reported only when ESO can resolve it.
 
 ## Design notes
@@ -244,4 +267,4 @@ Lua tables with integer keys (bag IDs, slot IDs, set IDs) become string keys whe
 
 ## Validation
 
-Run `luac5.1 -p iasync.lua` and `lua5.1 tests/ability_metadata.lua` for syntax and mocked ability-export regression checks. In game, reload the UI to load the addon, wait for the scan, then reload again to write the new SavedVariables. Inspect the current character's `abilityNames` and `abilityIcons` entries.
+Run `luac5.1 -p iasync.lua` and `lua5.1 tests/ability_metadata.lua` and `lua5.1 tests/armory_builds.lua` for syntax and mocked ability-export regression checks. In game, reload the UI to load the addon, wait for the scan, then reload again to write the new SavedVariables. Inspect the current character's `abilityNames` and `abilityIcons` entries.

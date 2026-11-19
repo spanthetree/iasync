@@ -47,6 +47,8 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
 | `GetCollectibleIdForHouse(houseId)` | House ID (from `GetCurrentZoneHouseId`) to its collectible ID. A house ID is **not** a collectible ID |
 | `GetCollectibleName(id)` | Resolves a collectible ID (e.g. from `GetCollectibleIdForHouse`) to display name |
 | `zo_callLater(fn, ms)` | Deferred execution; used for house chest scan (3 000 ms) |
+| `GetNumUnlockedArmoryBuilds()` / `GetArmoryBuild*(buildIndex, ...)` | In-game Armory builds, logged-in character only. `GetArmoryBuildEquipSlotInfo` returns `(state, bagId, slotIndex)`: the item's current location, not a link. House-chest items count as inaccessible (base UI rule) |
+| `GetEffectiveAbilityIdForAbilityOnHotbarForArmoryBuild(id, buildIndex, hotbarCategory)` | Morphed/scribed id for an Armory bar slot |
 | `GetNumAchievementCategories()` | Total number of top-level achievement categories (confirmed: returns 47) |
 | `GetAchievementCategoryInfo(categoryIndex)` | Takes a **1-based index**, not an ID. Returns `(name, numSubCategories, numAchievements, earnedPts, totalPts, hidesPoints)`. r4/r5 are confirmed to match the in-game summary UI (e.g. CHARACTER: 3120/5325). **`GetAchievementCategoryId` does not exist** — confirmed nil at runtime. |
 | `GetAchievementSubCategoryInfo(categoryIndex, subCategoryIndex)` | Returns `(name, numAchievements, earnedPts, totalPts)`. r2 is the achievement count to iterate; r3/r4 are API-provided earned/total points for the subcategory. |
@@ -141,7 +143,7 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
 ```
 EVENT_ADD_ON_LOADED       → OnAddonLoaded    (initialise iasync_data structure, init stickerbook table)
 EVENT_PLAYER_ACTIVATED    → OnPlayerActivated  (fires on login, /reloadui, and zone changes)
-    └─ zo_callLater 2 s   → ScanCharacterBags + ResolveBuildNames + ScanCharacterDetails
+    └─ zo_callLater 2 s   → ScanCharacterBags + ScanArmoryBuilds + ResolveBuildNames + ScanCharacterDetails
     └─ zo_callLater 3 s   → ScanHouseChests (no-op if not in a house)
     └─ zo_callLater 7 s   → ScanStickerbook (account-wide; 7 s gives ITEM_SET_COLLECTIONS_DATA_MANAGER time to populate)
     └─ zo_callLater 4 s   → ScanActivities (account-wide)
@@ -149,6 +151,7 @@ EVENT_PLAYER_ACTIVATED    → OnPlayerActivated  (fires on login, /reloadui, and
     └─ zo_callLater 9 s   → ScanCollectibles (account-wide)
 EVENT_ACHIEVEMENTS_UPDATED → ScanAchievements (refresh achievement state when ESO rebuilds it mid-session)
 EVENT_ACHIEVEMENT_AWARDED → OnAchievementAwarded (args: eventCode, name, points, achievementId, link)
+EVENT_ARMORY_BUILD_SAVE_RESPONSE / _RESTORE_RESPONSE / _UPDATED → OnArmoryChanged (ScanArmoryBuilds + ResolveBuildNames)
 EVENT_OPEN_BANK           → ScanBankBags
 EVENT_TIMED_ACTIVIT* / EVENT_PROMOTIONAL_EVENTS_* → OnActivityChanged (ScanActivities 2 s after the burst)
 EVENT_GUILD_BANK_ITEMS_READY → ScanGuildBank (selected guild's items loaded; again after switching guilds)

@@ -4,6 +4,13 @@ All notable changes to iasync will be documented here.
 
 ## [Unreleased]
 
+## [1.16.0] — 2026-11-19
+
+### Added
+
+- In-game Armory builds per character (`chars[id].armoryBuilds`): name, icon, gear with its current location and state (valid, inaccessible, missing), saved and effective skill bars, slotted Champion stars, Champion points per discipline, attributes, total skill points, Mundus Stone(s), curse and outfit. Rescanned on login and whenever a build is saved, restored or renamed.
+- Ability names and icons for skills on Armory build bars.
+
 ## [1.15.0] — 2026-11-18
 
 ### Added
