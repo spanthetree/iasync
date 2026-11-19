@@ -1,6 +1,8 @@
 # Changelog
 
-All notable changes to iasync will be documented here.
+All notable changes to iasync are recorded here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
+adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
@@ -8,9 +10,15 @@ All notable changes to iasync will be documented here.
 
 ### Added
 
-- In-game Armory builds per character (`chars[id].armoryBuilds`): name, icon, gear with its current location and state (valid, inaccessible, missing), saved and effective skill bars, slotted Champion stars, Champion points per discipline, attributes, total skill points, Mundus Stone(s), curse and outfit. Rescanned on login and whenever a build is saved, restored or renamed.
-- Ability names and icons for skills on Armory build bars.
-- `barsUpdate` on each Armory build. Skill bars and slotted Champion stars only load at an Armory station, so scans elsewhere keep the last ones read.
+- **Armory builds** (`chars[id].armoryBuilds`): every build saved at an in-game Armory station, with name, icon, gear (current location and state: `valid`, `inaccessible` or `missing`), saved and effective skill bars, slotted Champion stars, Champion points per discipline, attributes, total skill points, Mundus Stone(s), curse and outfit. Rescanned on login and whenever a build is saved, restored or renamed.
+- Skill names and icons for abilities on Armory build bars.
+- `barsUpdate` on each Armory build. Skill bars and Champion stars only load at an Armory station, so scans elsewhere keep the last ones read.
+- A [FAQ](docs/faq.md) on what iasync does and how it works.
+
+### Changed
+
+- Documentation restructured: a shorter README, the SavedVariables schema in [docs/schema.md](docs/schema.md), and a consistent changelog.
+- The addon description in `iasync.txt` covers everything iasync exports, not only builds.
 
 ## [1.15.0] — 2026-11-18
 
@@ -153,49 +161,22 @@ All notable changes to iasync will be documented here.
 
 ### Changed
 
-**Stickerbook piece names**
-- `ScanStickerbook` now captures each piece's display name via `GetItemSetCollectionPieceItemLink` + `GetItemLinkName` (e.g. `"Mara's Balm Greaves"`)
-- `filterName` field removed from pieces — `GetEquipmentFilterTypeForItemSetCollectionSlot` returns armor/weapon sub-type integers that are not reliable for display; piece names are used instead
-- Each piece entry now: `{ filterType, collected, name }`
-
----
+- Set collection pieces carry their display name (`name`, from `GetItemSetCollectionPieceItemLink` and `GetItemLinkName`), e.g. "Mara's Balm Greaves".
+- `filterName` removed from pieces: `GetEquipmentFilterTypeForItemSetCollectionSlot` returns armor and weapon sub-types, not display categories.
 
 ## [1.2.0] — 2026-05-20
 
 ### Added
 
-**Armor weight and weapon type per slot**
-- `CaptureSlot` now calls `GetItemLinkArmorType` and `GetItemLinkWeaponType` on the item link and resolves each to a display string via inline lookup tables (`ARMOR_TYPE_NAMES`, `WEAPON_TYPE_NAMES`)
-- `armorType` field: `"Light"`, `"Medium"`, or `"Heavy"` — `nil` for non-armor items
-- `weaponType` field: `"Sword"`, `"Axe"`, `"Hammer"`, `"Dagger"`, `"Two-Handed Sword"`, `"Two-Handed Axe"`, `"Two-Handed Hammer"`, `"Inferno Staff"`, `"Ice Staff"`, `"Lightning Staff"`, `"Restoration Staff"`, `"Bow"`, or `"Shield"` — `nil` for non-weapon items
-- Uses per-element destruction staff constants (`WEAPONTYPE_FIRE_STAFF`, `WEAPONTYPE_FROST_STAFF`, `WEAPONTYPE_LIGHTNING_STAFF`) with sequential fallbacks (8–13) covering Restoration Staff (11), Bow (12), and Shield (13)
-
-**Stickerbook (item set collection)**
-- `ScanStickerbook()` iterates all item set collection categories via `ITEM_SET_COLLECTIONS_DATA_MANAGER`
-- Per-set capture: name, category, subcategory, `numCollected`, `numTotal`, and per-piece collected status + filter type
-- Stored in `iasync_data.stickerbook.sets` keyed by set ID
-- Called from `OnPlayerActivated` (7 s delay) and from `iasync_scan()`
-- `iasync_data.stickerbook` initialised in `OnAddonLoaded`
+- Armor weight (`armorType`: "Light", "Medium" or "Heavy") and weapon type (`weaponType`, e.g. "Inferno Staff") on every item slot, `nil` where they don't apply.
+- Set collections (`stickerbook.sets`, keyed by set ID): name, category, subcategory, pieces collected and total, and each piece's collected state. Scanned 7 s after login.
 
 ## [1.1.0] — 2026-05-19
 
 ### Added
 
-**Achievement scanning**
-- `ScanAchievements()` iterates all categories and subcategories via `GetNumAchievementCategories` / `GetAchievementCategoryInfo` / `GetAchievementSubCategoryInfo` / `GetAchievementId`
-- Per-achievement capture: name, description, points, icon, completion status, completion date, Unix completion timestamp (`GetAchievementTimestamp`), persistence level (`GetAchievementPersistenceLevel`), criteria progress (`GetAchievementNumCriteria` / `GetAchievementCriterion`), and rewards (title, dye, collectible, item)
-- Account-wide achievements routed to `iasync_data.achievements.account`; character-specific achievements stored under `chars[charId].achievements`
-- Category and subcategory summaries with API-provided `earnedPts` / `totalPts` (match in-game UI) plus computed `total` / `complete` counts
-- `EVENT_ACHIEVEMENT_AWARDED` handler (`OnAchievementAwarded`) for real-time updates on mid-session unlocks
-- `ScanAchievements` called from `OnPlayerActivated` (5 s delay) and from `iasync_scan()`
-- `iasync_data.achievements` initialised in `OnAddonLoaded`
-
-**Account name capture**
-- `iasync_data.accountName` populated via `GetDisplayName()` on every character scan
-
-### Changed
-
-- Removed multi-line block comments that restated what the code already said; retained only non-obvious constraint comments
+- Achievements: every achievement with name, description, points, icon, completion date and timestamp, persistence level, criteria progress and rewards (title, dye, collectible, item). Account-wide achievements go in `achievements.account`, the rest under each character. Category and subcategory point totals match the in-game summary. Scanned 5 s after login and on `EVENT_ACHIEVEMENT_AWARDED`.
+- Account name (`accountName`).
 
 ## [1.0.0] — 2026-05-19
 
@@ -203,50 +184,10 @@ Initial release.
 
 ### Added
 
-**Character scanning (on login / `/reloadui` / zone change)**
-- Equipped gear (`BAG_WORN`) and backpack (`BAG_BACKPACK`) — item link, name, quantity, trait type + resolved trait name, enchant display name, set name + set ID, quality, filter type
-- Inventory capacity tracking (`spaceUsed` / `spaceMax`)
-- Character identity — name, race, class, alliance
-- Currency snapshot — Gold, Alliance Points, Tel Var Stones, Writ Vouchers (character location)
-- Skill bars (primary and backup) — ability IDs for slots 3–7 and ultimate slot 8, with crafted/scribing ability resolution via `GetAbilityIdForCraftedAbilityId`
-- Champion Point snapshot — total earned points and 12 slotted star IDs
-- Attribute point allocations (Health / Magicka / Stamina)
-- Active Mundus Stone detection via buff scan (supports multiple stones, e.g. Steed of the North set)
-- Per-character ability name resolution (`abilityNames`) and CP star name resolution (`cpNames`) — stored under each character entry so logins never overwrite another character's resolved names
-
-**Bank scanning (on bank open)**
-- Personal bank (`BAG_BANK`) and ESO Plus overflow bank (`BAG_SUBSCRIBER_BANK`)
-- Craft bag (`BAG_VIRTUAL`) using `GetNextVirtualBagSlotId` linked-list iterator
-- Bank currency snapshot — Gold, Alliance Points, Tel Var Stones, Writ Vouchers (bank location)
-
-**House chest scanning (3 s after house entry)**
-- Up to 10 storage chests per house, probed via `GetBagSize`
-- Houses keyed by collectible ID (from `GetCurrentZoneHouseId`) with display name via `GetCollectibleName`
-- Per-chest metadata: slot contents, capacity, 1-based chest number, `lastUpdate` timestamp
-
-**Guild bank scanning (on guild bank open)**
-- Full contents of `BAG_GUILDBANK`, stored under the guild name
-- Note: guild bank data is captured in SavedVariables but is not currently read by the ESO Armory web app
-
-**Real-time updates**
-- `EVENT_INVENTORY_SINGLE_SLOT_UPDATE` handler keeps all bag types current without a full re-scan; routes updates to the correct storage key (character / bank / guild bank / house chest)
-
-**Trait name lookup table**
-- Inline `TRAIT_NAMES` table covering all weapon, armor, jewelry, and scribing traits (indices 1–33, 52–60), eliminating the need for Python-side resolution
-
-**Manual rescan command**
-- `/script iasync_scan()` re-runs character bag scan and ability name resolution for the current character
-
-**Error protection and compatibility**
-- All ESO API calls inside `CaptureSlot`, `ScanBuild`, and `ResolveBuildNames` are wrapped in `pcall`; slot-scan errors are logged to chat via `d(...)` and skipped without aborting the full scan
-- API availability guards throughout — ESO globals that were added or renamed across patches (`HOTBAR_CATEGORY_PRIMARY`, `BAG_HOUSE_CONTAINER_1`, `GetItemDisplayQuality`) use `or`-fallbacks so the addon runs on any API version at or below `101049`
-
-**Backward compatibility**
-- Legacy top-level `iasync_data.abilityNames` and `iasync_data.cpNames` tables initialised on load and preserved in SavedVariables; no longer actively written to (per-character entries are used instead)
-
-**Addon manifest**
-- `APIVersion: 101049`, `SavedVariables: iasync_data`
-
-**Documentation**
-- `README.md` — installation, full SavedVariables schema, design notes, iifa comparison
-- `AGENTS.md` — coding guide for AI agents: invariants, event flow, known pitfalls, schema change checklist
+- Character scan on login, `/reloadui` and zone change: equipped gear and backpack (link, name, quantity, trait, enchant, set, quality, filter type), backpack capacity, name, race, class, alliance, and Gold, Alliance Points, Tel Var Stones and Writ Vouchers.
+- Build: front and back bars (scribed skills resolved to their base ability), Champion Points earned and slotted stars, attributes, and active Mundus Stone(s), with skill and star names per character.
+- Bank, ESO Plus bank and craft bag when the bank opens, with banked currencies.
+- House storage chests, 3 s after entering a house.
+- Guild bank contents when it opens.
+- Real-time slot updates from `EVENT_INVENTORY_SINGLE_SLOT_UPDATE`.
+- `/script iasync_scan()` to rescan on demand.

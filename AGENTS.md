@@ -186,7 +186,7 @@ When you need to skip to the next iteration of an outer loop, extract the loop b
 
 **Stickerbook two-level category hierarchy.** `ITEM_SET_COLLECTIONS_DATA_MANAGER` exposes a two-level hierarchy: TopLevelCategories (e.g. "Dungeons") → Subcategories (e.g. "Elden Hollow") → Sets. When recursing through `SubcategoryIterator`, thread both `topName` (the top-level category) and `subName` (the current sub-level) separately. Do NOT overwrite `topName` during recursion — all sets in a top category must share the same category name for the UI grouping to work correctly.
 
-**Two `/reloadui` cycles needed after adding new scan code.** The first `/reloadui` loads the new Lua file but writes the *old* SavedVariables structure (from the prior session). The second `/reloadui` actually writes the results of the new scan. Verify output after the *second* reloadui.
+**Two `/reloadui` cycles needed only when `iasync.lua` changes while the game is running.** The first `/reloadui` loads the new Lua file but writes the *old* SavedVariables structure (from the prior session). The second `/reloadui` actually writes the results of the new scan. Verify output after the *second* reloadui. After a fresh game start one login is enough.
 
 **`slot` from `GetItemSetCollectionPieceInfo` is id64 userdata.** Never store it as an integer or call `tostring()` on it for use as a key. Pass it directly to `IsItemSetCollectionSlotUnlocked` and `GetEquipmentFilterTypeForItemSetCollectionSlot`.
 
@@ -198,7 +198,7 @@ If you add a new field to any stored table:
 1. Add it in the relevant scan function (`ScanCharacterBags`, `ScanBuild`, `CaptureSlot`, etc.)
 2. Initialise it with a safe default (do not leave it `nil` if the Python side expects it to always be present)
 3. Update `data_processor.py` to read the new field — use `.get("field", default)` to stay backwards compatible with existing SavedVariables files that predate the change
-4. Update the schema section in `README.md`
+4. Update `docs/schema.md`
 
 ## Git and release policy
 
@@ -208,7 +208,7 @@ Git actions (branch, add, commit, push, pull) are allowed. **Open a pull request
 - One pull request per issue. Land each phase of the work as its own commit, and put the whole issue in a single PR.
 - Before you open the PR, the branch's last commit must:
   - **Update `CHANGELOG.md`.** Add a dated `## [x.y.z] — YYYY-MM-DD` section under `[Unreleased]`, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
-  - **Update `README.md`** wherever features, the SavedVariables schema, or setup changed.
+  - **Update `README.md`** wherever features or setup changed, `docs/schema.md` for the SavedVariables schema, and `docs/faq.md` if behaviour users see changed.
   - **Bump the version** in `iasync.txt` (the `## Version:` line) under [Semantic Versioning](https://semver.org/spec/v2.0.0.html). A fix is a patch, a feature a minor. Not sure? Ask in the PR.
 
 When the user asks only for a **pre-commit** / release preparation, do those three steps and stop.
