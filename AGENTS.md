@@ -6,18 +6,26 @@ This file is for AI coding agents working on the iasync addon. Read it before ma
 
 iasync is a **read-only data exporter**. It never modifies the player's inventory, builds, or any game state — it only reads ESO APIs and writes to `iasync_data` (the SavedVariables table). Keep it that way.
 
-The SavedVariables file is read by the ESO Armory web app (`server.py` / `data_processor.py`). Any schema change here must be reflected there too. `process_iasync` handles character bags, bank, and houses. `process_iasync_builds` reads equipped gear and build data per character.
+The SavedVariables file is read by the [ESO Armory](https://github.com/spanthetree/eso-armory) web app (`server.py` / `data_processor.py`). Any schema change here must be reflected there too. `process_iasync` handles character bags, bank, and houses. `process_iasync_builds` reads equipped gear, build data and Armory builds per character. Work that spans both repos is often split across two agent sessions; report the exact SavedVariables shape you wrote so the other side can match it.
 
 `process_iasync` also reads `guildBanks` (items with location type `guild_bank`).
 
 ## File layout
 
 ```
-iasync.lua    — entire addon, single file
-iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables declaration)
+iasync.lua       — entire addon, single file
+iasync.txt       — addon manifest (title, version, APIVersion, SavedVariables declaration)
+tests/*.lua      — mocked unit tests; each extracts a function from iasync.lua by pattern and stubs the ESO API
+docs/schema.md   — every SavedVariables field (keep in sync with the code)
+docs/api.md      — which ESO functions and events feed each part of the file
+docs/faq.md      — user-facing FAQ
 ```
 
+The repo is checked out inside the live ESO AddOns folder, so edits load in game on the next `/reloadui`.
+
 ## Key ESO API functions used
+
+`docs/api.md` maps every function and event to the data it feeds. This table keeps the behaviour that the docs get wrong or leave out, much of it confirmed in game.
 
 | Function | Purpose |
 |----------|---------|
@@ -143,11 +151,13 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
 ```
 EVENT_ADD_ON_LOADED       → OnAddonLoaded    (initialise iasync_data structure, init stickerbook table)
 EVENT_PLAYER_ACTIVATED    → OnPlayerActivated  (fires on login, /reloadui, and zone changes)
+    └─ immediately        → ScanUiColors
     └─ zo_callLater 2 s   → ScanCharacterBags + ScanArmoryBuilds + ResolveBuildNames + ScanCharacterDetails
     └─ zo_callLater 3 s   → ScanHouseChests (no-op if not in a house)
-    └─ zo_callLater 7 s   → ScanStickerbook (account-wide; 7 s gives ITEM_SET_COLLECTIONS_DATA_MANAGER time to populate)
     └─ zo_callLater 4 s   → ScanActivities (account-wide)
-    └─ zo_callLater 6 s   → ScanScribing (per character) + ScanAntiquities (account-wide)
+    └─ zo_callLater 5 s   → ScanAchievements
+    └─ zo_callLater 6 s   → ScanScribing (per character) + ScanAntiquities + ScanChampionSkills (account-wide)
+    └─ zo_callLater 7 s   → ScanStickerbook (account-wide; 7 s gives ITEM_SET_COLLECTIONS_DATA_MANAGER time to populate)
     └─ zo_callLater 9 s   → ScanCollectibles (account-wide)
 EVENT_ACHIEVEMENTS_UPDATED → ScanAchievements (refresh achievement state when ESO rebuilds it mid-session)
 EVENT_ACHIEVEMENT_AWARDED → OnAchievementAwarded (args: eventCode, name, points, achievementId, link)
@@ -190,6 +200,8 @@ When you need to skip to the next iteration of an outer loop, extract the loop b
 
 **`slot` from `GetItemSetCollectionPieceInfo` is id64 userdata.** Never store it as an integer or call `tostring()` on it for use as a key. Pass it directly to `IsItemSetCollectionSlotUnlocked` and `GetEquipmentFilterTypeForItemSetCollectionSlot`.
 
+**Armory slot data needs a station visit.** `GetArmoryBuildSlotBoundId` (skills and `HOTBAR_CATEGORY_CHAMPION`) returns 0 until the client has been at an Armory station this session; gear, attributes and mundus getters work anywhere (confirmed in game). `ScanArmoryBuilds` keeps the previous bars when every build reads empty and stamps `barsUpdate` only on a real read. No API reports which Armory build is active: ESO Armory infers it by matching gear in `BAG_WORN` (`bagId == 0`), then attributes, mundus and bars.
+
 **Guild bank slots.** Guild bank slot ids are not `0..GetBagSize-1`; walk them with `ZO_GetNextBagSlotIndex(BAG_GUILDBANK, slot)`. The open bank's guild is `GetSelectedGuildBankId()`. `EVENT_INVENTORY_SINGLE_SLOT_UPDATE` does not cover guild banks; use the `EVENT_GUILD_BANK_*` events.
 
 ## Making schema changes
@@ -219,11 +231,13 @@ The fastest feedback loop is the in-game chat command:
 ```
 /script iasync_scan()
 ```
-This re-runs `ScanCharacterBags` + `ResolveBuildNames` for the current character and prints a summary line to chat. The SavedVariables file is written on logout or `/reloadui`.
+This re-runs every scan at once and prints summary lines to chat. The SavedVariables file is written on logout, character switch or `/reloadui`, never during play.
 
 To force a write without logging out:
 ```
 /reloadui
 ```
 
-To verify the output, open the SavedVariables file and inspect `iasync_data.chars["<yourCharId>"]`.
+To verify the output, open `../../SavedVariables/iasync.lua` (relative to the addon folder) and inspect `iasync_data.chars["<yourCharId>"]`. The file is large (about 20 MB on the main account), so load it with `lua -e 'dofile(...)'` and print the fields you need rather than reading it whole.
+
+Mocked tests run from the repository root: `lua5.1 tests/ability_metadata.lua` and `lua5.1 tests/armory_builds.lua` (Lua 5.4 also runs them, but only 5.1 proves ESO compatibility). Add a test in the same style for new scan logic.

@@ -104,6 +104,7 @@ chat.
 |---|---|
 | [FAQ](docs/faq.md) | What iasync does, how it works, privacy, troubleshooting |
 | [Schema](docs/schema.md) | Every field in the SavedVariables file |
+| [Game API reference](docs/api.md) | Which ESO functions and events feed each part of the file |
 | [Changelog](CHANGELOG.md) | What changed in each release |
 | [AGENTS.md](AGENTS.md) | Coding guide: API notes, invariants, event flow |
 
