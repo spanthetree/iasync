@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.17.0] — 2026-11-19
+
+### Added
+
+- `lastKnown` on missing Armory gear: the item an earlier scan saw in that slot (link, name, set, trait and the other item fields), since the game gives no details for a missing item. Absent if iasync never saw the item.
+
 ## [1.16.1] — 2026-11-19
 
 ### Fixed

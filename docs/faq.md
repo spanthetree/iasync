@@ -62,7 +62,7 @@ then on iasync keeps the last bars it read, even when you scan elsewhere.
 ## Why is a piece of Armory gear listed as missing?
 
 The item was sold, deconstructed or otherwise lost since the build was saved,
-so the game no longer knows where it is or what it was. Items in a house chest
+so the game no longer knows where it is or what it was. If iasync saw the item in an earlier scan, it keeps that item as `lastKnown`. Items in a house chest
 show as inaccessible: they still exist, but the Armory can't equip them from
 there.
 

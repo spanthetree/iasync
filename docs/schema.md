@@ -57,6 +57,7 @@ iasync_data = {
             state,                              -- "valid" | "inaccessible" (house chest) | "missing" (sold/deconstructed)
             bagId, slotIndex,                   -- where the item is now; absent when missing
             link, name, traitType, ...,         -- CaptureSlot fields, only when the item can be read; never when missing
+            lastKnown = { link, name, ... },    -- missing only: the item an earlier scan saw here; absent if never seen
           } },
           bars = { primary = { [3..8] = abilityId }, backup = { ... } },           -- ids as saved
           effectiveBars = { primary = { [3..8] = abilityId }, backup = { ... } },  -- morphed/scribed ids
