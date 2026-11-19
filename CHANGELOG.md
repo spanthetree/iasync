@@ -10,7 +10,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- **Armory builds** (`chars[id].armoryBuilds`): every build saved at an in-game Armory station, with name, icon, gear (current location and state: `valid`, `inaccessible` or `missing`), saved and effective skill bars, slotted Champion stars, Champion points per discipline, attributes, total skill points, Mundus Stone(s), curse and outfit. Rescanned on login and whenever a build is saved, restored or renamed.
+- **Armory builds** (`chars[id].armoryBuilds`): every build saved at an in-game Armory station, with name, icon, gear (current location and state: `valid`, `inaccessible` or `missing`), saved and effective skill bars, slotted Champion stars, Champion points per discipline, attributes, total skill points, Mundus Stone(s), curse and outfit (index and name). Rescanned on login and whenever a build is saved, restored or renamed.
 - Skill names and icons for abilities on Armory build bars.
 - `barsUpdate` on each Armory build. Skill bars and Champion stars only load at an Armory station, so scans elsewhere keep the last ones read.
 - A [FAQ](docs/faq.md) on what iasync does and how it works.

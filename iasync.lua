@@ -462,6 +462,13 @@ local function ScanArmoryBuild(i)
         outfitIndex = get(GetArmoryBuildEquippedOutfitIndex, i),
     }
 
+    -- Outfit name as the Armory shows it (ZO_ArmoryBuildData:GetEquippedOutfitName); absent with no outfit.
+    if build.outfitIndex then
+        local outfit = ZO_OUTFIT_MANAGER and get(ZO_OUTFIT_MANAGER.GetOutfitManipulator, ZO_OUTFIT_MANAGER,
+            GAMEPLAY_ACTOR_CATEGORY_PLAYER or 0, build.outfitIndex)
+        build.outfitName = (outfit and get(outfit.GetOutfitName, outfit)) or GetString(SI_NO_OUTFIT_EQUIP_ENTRY)
+    end
+
     -- Gear is keyed by equip slot, the same integers as the BAG_WORN slot index. Empty slots are omitted.
     local gear = {}
     for equipSlot = 0, GetBagSize(BAG_WORN) - 1 do

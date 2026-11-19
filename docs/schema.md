@@ -52,6 +52,7 @@ iasync_data = {
           skillPoints,                          -- total only; no per-skill-line breakdown
           curse,                                -- "none" | "vampire" | "werewolf"
           outfitIndex,                          -- nil when no outfit
+          outfitName,                           -- as the Armory shows it; nil when no outfit
           gear = { [equipSlot] = {              -- equipSlot = BAG_WORN slot index; empty slots omitted
             state,                              -- "valid" | "inaccessible" (house chest) | "missing" (sold/deconstructed)
             bagId, slotIndex,                   -- where the item is now; nil when missing

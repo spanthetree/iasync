@@ -16,7 +16,7 @@ function d() end
 function GetBagSize() return 4 end
 function IsHouseBag(bagId) return bagId == 7 end
 function CaptureSlot(bagId, slot) return { name = "Item " .. bagId .. "/" .. slot, link = "|H1:item|h" } end
-function GetString(_, stone) return ({ [1] = "The Lady", [2] = "The Lover" })[stone] or "" end
+function GetString(id, stone) if id == 99 then return "No Outfit" end return ({ [1] = "The Lady", [2] = "The Lover" })[stone] or "" end
 
 local numBuilds = 2
 function GetNumUnlockedArmoryBuilds() return numBuilds end
@@ -24,7 +24,9 @@ function GetArmoryBuildName(i) return "Build " .. i end
 function GetArmoryBuildIconIndex() return 5 end
 function GetArmoryBuildSkillsTotalSpentPoints() return 400 end
 function GetArmoryBuildCurseType(i) return i == 1 and CURSE_TYPE_VAMPIRE or CURSE_TYPE_NONE end
-function GetArmoryBuildEquippedOutfitIndex() return nil end
+function GetArmoryBuildEquippedOutfitIndex(i) return i == 2 and 1 or nil end
+SI_NO_OUTFIT_EQUIP_ENTRY = 99
+ZO_OUTFIT_MANAGER = { GetOutfitManipulator = function(_, _, idx) return { GetOutfitName = function() return "Outfit look " .. idx end } end }
 function GetArmoryBuildEquipSlotInfo(i, slot)
     if i == 2 then error("unavailable") end
     if slot == 0 then return ARMORY_BUILD_EQUIP_SLOT_STATE_VALID, 1, 12 end
@@ -54,7 +56,8 @@ scan()
 local builds = iasync_data.chars["123"].armoryBuilds
 local b = builds[1]
 assert(b.name == "Build 1" and b.icon == "EsoUI/Art/Armory/BuildIcons/buildIcon_5.dds")
-assert(b.curse == "vampire" and b.skillPoints == 400 and b.outfitIndex == nil)
+assert(b.curse == "vampire" and b.skillPoints == 400 and b.outfitIndex == nil and b.outfitName == nil)
+assert(builds[2].outfitIndex == 1 and builds[2].outfitName == "Outfit look 1")
 assert(b.gear[0].state == "valid" and b.gear[0].name == "Item 1/12" and b.gear[0].bagId == 1)
 assert(b.gear[1].state == "inaccessible")
 assert(b.gear[2].state == "missing" and b.gear[2].link == nil)
