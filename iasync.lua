@@ -476,13 +476,15 @@ local function ScanArmoryBuild(i)
         local stateName = ARMORY_SLOT_STATES[state]
         if stateName then
             local entry = {}
-            if bagId and slotIndex then
+            -- A missing item reports a placeholder location (BAG_BACKPACK, 0); reading it would capture an unrelated item.
+            if stateName ~= "missing" and bagId and slotIndex then
                 local ok, data = pcall(CaptureSlot, bagId, slotIndex)
                 if ok and data then entry = data end
                 -- Same rule as the base UI: house chests are out of reach of a restore.
                 if stateName == "valid" and IsHouseBag(bagId) then stateName = "inaccessible" end
+                entry.bagId, entry.slotIndex = bagId, slotIndex
             end
-            entry.state, entry.bagId, entry.slotIndex = stateName, bagId, slotIndex
+            entry.state = stateName
             gear[equipSlot] = entry
         end
     end

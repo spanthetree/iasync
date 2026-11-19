@@ -31,7 +31,7 @@ function GetArmoryBuildEquipSlotInfo(i, slot)
     if i == 2 then error("unavailable") end
     if slot == 0 then return ARMORY_BUILD_EQUIP_SLOT_STATE_VALID, 1, 12 end
     if slot == 1 then return ARMORY_BUILD_EQUIP_SLOT_STATE_VALID, 7, 3 end
-    if slot == 2 then return ARMORY_BUILD_EQUIP_SLOT_STATE_MISSING end
+    if slot == 2 then return ARMORY_BUILD_EQUIP_SLOT_STATE_MISSING, 1, 0 end  -- placeholder: backpack slot 0 holds an item
     return ARMORY_BUILD_EQUIP_SLOT_STATE_EMPTY
 end
 local barsAway = false
@@ -60,7 +60,11 @@ assert(b.curse == "vampire" and b.skillPoints == 400 and b.outfitIndex == nil an
 assert(builds[2].outfitIndex == 1 and builds[2].outfitName == "Outfit look 1")
 assert(b.gear[0].state == "valid" and b.gear[0].name == "Item 1/12" and b.gear[0].bagId == 1)
 assert(b.gear[1].state == "inaccessible")
-assert(b.gear[2].state == "missing" and b.gear[2].link == nil)
+do
+    local missing = b.gear[2]
+    assert(missing.state == "missing")
+    for k in pairs(missing) do assert(k == "state", "missing slot has " .. k) end
+end
 assert(b.gear[3] == nil)
 assert(b.bars.primary[3] == 100 and b.effectiveBars.primary[3] == 101 and b.bars.primary[4] == nil)
 assert(b.cp.slots[1] == 9 and b.cp.disciplines[4].spent == 210 and b.cp.disciplines[4].name == "Warfare")

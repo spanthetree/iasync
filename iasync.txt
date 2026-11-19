@@ -6,7 +6,7 @@
 ## Title: iasync
 ## Description: Exports your characters, storage, builds and collections to SavedVariables for ESO Armory
 ## Author: spanthetree
-## Version: 1.16.0
+## Version: 1.16.1
 ## APIVersion: 101051
 ## SavedVariables: iasync_data
 
