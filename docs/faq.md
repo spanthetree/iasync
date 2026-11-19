@@ -61,10 +61,19 @@ then on iasync keeps the last bars it read, even when you scan elsewhere.
 
 ## Why is a piece of Armory gear listed as missing?
 
-The item was sold, deconstructed or otherwise lost since the build was saved,
-so the game no longer knows where it is or what it was. If iasync saw the item in an earlier scan, it keeps that item as `lastKnown`. Items in a house chest
-show as inaccessible: they still exist, but the Armory can't equip them from
-there.
+The Armory remembers the exact copy of each item, not just its set and slot.
+If that copy was sold, deconstructed, or swapped for another copy of the same
+item, the game can't find it, even when a lookalike sits in your bank, and it
+gives no details about what it was. Items in your bank still count: the game
+finds them there and lists their location.
+
+If iasync scanned the build while the item still existed, it keeps that item
+as `lastKnown`, so ESO Armory can show what used to be in the slot. To clear
+the warning in game, equip the replacements and save over the build at an
+Armory station.
+
+Items in a house chest show as inaccessible: they still exist, but the Armory
+can't equip them from there.
 
 ## Do I need to reload twice?
 

@@ -177,6 +177,8 @@ iasync_data = {
     xpStart, xpEnd,
   },
   abilityNames = {},   -- legacy; kept for backwards compat, not actively written
+  guildBankFormat = 2, -- one-time migration markers; ignore
+  houseFormat     = 2,
   cpNames        = { [championSkillId] = "Name" },         -- every champion star, account-wide
   cpDescriptions = { [championSkillId] = "Description" },  -- every champion star, at max points
 }

@@ -34,8 +34,9 @@ state, adds no in-game UI and has no library dependencies.
   base ability), slotted Champion stars, attributes, maximum resources and
   active Mundus Stone(s), with skill names and icons.
 - **Armory builds.** Every build saved at an in-game Armory station: gear and
-  where each piece is now, bars, Champion stars and points per discipline,
-  attributes, skill points, Mundus Stone(s), curse and outfit.
+  where each piece is now (or the last item seen there, if it has gone
+  missing), bars, Champion stars and points per discipline, attributes, skill
+  points, Mundus Stone(s), curse and outfit.
 - **Storage.** Bank, ESO Plus bank, craft bag, house storage chests and guild
   banks.
 - **Achievements.** Every achievement with criteria progress, rewards,
@@ -45,6 +46,8 @@ state, adds no in-game UI and has no library dependencies.
   costumes, houses, outfit styles, Tales of Tribute patrons) and antiquities.
 - **Crafting.** Trait research (including research in progress), known motif
   chapters and recipes, and unlocked scribing grimoires and scripts.
+- **Reference data.** Every Champion star's name and description, and the
+  game's interface colours, so tools can match the in-game look.
 - **Activities.** Daily and weekly Endeavors, Tamriel Tome challenges and
   pass, and Golden Pursuits campaigns, with progress toward each.
 
@@ -74,15 +77,14 @@ Requires ESO on PC or Mac, API version `101051` (Update 51) or later.
 
 | When | What |
 |---|---|
-| Login, `/reloadui`, zone change | The character, its build and Armory builds, currencies and details; then achievements, activities, scribing, antiquities, set collections and collectibles over the next 9 seconds |
+| Login, `/reloadui`, zone change | The character, its build and Armory builds, currencies and details; then achievements, activities, scribing, antiquities, the Champion star catalogue, set collections and collectibles over the next 9 seconds |
 | Entering a house you own | Its storage chests |
 | Opening the bank | Bank, ESO Plus bank, craft bag, banked currencies |
 | Viewing a guild bank | That guild's bank, and again after deposits or withdrawals |
 | Saving, restoring or renaming an Armory build | All Armory builds |
 | Any inventory change, earning an achievement, activity progress | The change, as it happens |
 
-To rescan the current character on demand, type `/script iasync_scan()` in
-chat.
+To rerun every scan on demand, type `/script iasync_scan()` in chat.
 
 ## Known limitations
 
@@ -91,8 +93,10 @@ chat.
 - **Skill names** resolve only for the logged-in character's own skills.
 - **Armory skill bars and Champion stars** load only after you visit an Armory
   station. Until then iasync keeps the last ones it read.
-- **An Armory item sold or deconstructed** since the build was saved shows as
-  missing, with no item details.
+- **Missing Armory gear.** The Armory tracks the exact copy of each item, so a
+  piece that was sold, deconstructed or replaced by another copy shows as
+  missing. The game gives no details for it; iasync can only show the item it
+  saw in that slot on an earlier scan (`lastKnown`).
 - **Guild banks** are captured only after you view them, and only if your rank
   can see their contents.
 - **Achievement attribution:** the character who earned an account-wide

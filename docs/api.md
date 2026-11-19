@@ -90,7 +90,7 @@ setups, read from its `WizardsWardrobeSV` table when that addon is installed.
 |---|---|
 | Builds | `GetNumUnlockedArmoryBuilds` |
 | Name, icon | `GetArmoryBuildName`, `GetArmoryBuildIconIndex` (path from `ZO_ARMORY_BUILD_ICON_TEXTURE_FORMATTER`) |
-| Gear | `GetArmoryBuildEquipSlotInfo` for each `BAG_WORN` slot, then the item from its current bag and slot |
+| Gear | `GetArmoryBuildEquipSlotInfo` for each `BAG_WORN` slot, then the item from its current bag and slot. A missing item reports a placeholder location (`BAG_BACKPACK`, 0) that is never read; `lastKnown` comes from the previous scan |
 | Bars, Champion stars | `GetArmoryBuildSlotBoundId`, `GetEffectiveAbilityIdForAbilityOnHotbarForArmoryBuild` |
 | Champion points | `GetNumChampionDisciplines`, `GetChampionDisciplineId`, `GetChampionDisciplineName`, `GetArmoryBuildChampionSpentPointsByDiscipline` |
 | Attributes, skill points | `GetArmoryBuildAttributeSpentPoints`, `GetArmoryBuildSkillsTotalSpentPoints` |

@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.17.1] — 2026-11-19
+
+### Changed
+
+- Documentation brought up to date with 1.17.0: missing Armory gear and `lastKnown` in the README, FAQ, API reference and AGENTS.md; the Champion star catalogue and interface colours listed as features; migration markers (`guildBankFormat`, `houseFormat`) in the schema.
+
 ## [1.17.0] — 2026-11-19
 
 ### Added
