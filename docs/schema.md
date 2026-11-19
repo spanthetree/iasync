@@ -55,8 +55,8 @@ iasync_data = {
           outfitName,                           -- as the Armory shows it; nil when no outfit
           gear = { [equipSlot] = {              -- equipSlot = BAG_WORN slot index; empty slots omitted
             state,                              -- "valid" | "inaccessible" (house chest) | "missing" (sold/deconstructed)
-            bagId, slotIndex,                   -- where the item is now; nil when missing
-            link, name, traitType, ...,         -- CaptureSlot fields, only when the item can be read
+            bagId, slotIndex,                   -- where the item is now; absent when missing
+            link, name, traitType, ...,         -- CaptureSlot fields, only when the item can be read; never when missing
           } },
           bars = { primary = { [3..8] = abilityId }, backup = { ... } },           -- ids as saved
           effectiveBars = { primary = { [3..8] = abilityId }, backup = { ... } },  -- morphed/scribed ids

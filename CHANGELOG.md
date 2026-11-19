@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.16.1] — 2026-11-19
+
+### Fixed
+
+- Armory gear in the `missing` state was saved with the item in backpack slot 0, because the game reports a placeholder location for missing items. Missing slots now hold only `state = "missing"`. Rebuilt on the next scan.
+
 ## [1.16.0] — 2026-11-19
 
 ### Added
