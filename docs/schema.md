@@ -196,4 +196,7 @@ iasync_data = {
   last values read; `barsUpdate` says when that was.
 - **Snapshots.** `activities` reflects progress at `lastUpdate`. `endTime` and
   `resetTime` are unix seconds, so you can tell when a snapshot has expired.
+- **Icons** are game texture paths (`/esoui/art/icons/....dds`), not files on
+  disk. [UESP](https://en.uesp.net/) mirrors them as PNG at
+  `https://esoicons.uesp.net/esoui/art/icons/<name>.png`.
 - **Deleted characters** stay in `chars` until you delete the file.

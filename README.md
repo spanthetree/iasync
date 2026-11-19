@@ -114,6 +114,7 @@ chat.
 | [ESO Armory](https://github.com/spanthetree/eso-armory) | The web app that reads this file and shows your account in a browser |
 | [Wizard's Wardrobe](https://www.esoui.com/downloads/info3170-WizardsWardrobe.html) | Optional. If installed, iasync reads the logged-in character's saved setups, read-only, to name and icon the skills in them |
 | [esoui/esoui](https://github.com/esoui/esoui) | ZeniMax's UI source and `ESOUIDocumentation.txt`, the reference for every API iasync calls. The Armory's "inaccessible" rule for house-chest items follows its base UI |
+| [UESP](https://en.uesp.net/wiki/Online:Online) | Not used by iasync. The icon paths it exports are game texture paths; UESP mirrors those images at [esoicons.uesp.net](https://esoicons.uesp.net/), which is where ESO Armory gets them |
 
 ## Development
 
