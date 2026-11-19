@@ -47,7 +47,7 @@ iasync.txt    — addon manifest (title, version, APIVersion, SavedVariables dec
 | `GetCollectibleIdForHouse(houseId)` | House ID (from `GetCurrentZoneHouseId`) to its collectible ID. A house ID is **not** a collectible ID |
 | `GetCollectibleName(id)` | Resolves a collectible ID (e.g. from `GetCollectibleIdForHouse`) to display name |
 | `zo_callLater(fn, ms)` | Deferred execution; used for house chest scan (3 000 ms) |
-| `GetNumUnlockedArmoryBuilds()` / `GetArmoryBuild*(buildIndex, ...)` | In-game Armory builds, logged-in character only. `GetArmoryBuildEquipSlotInfo` returns `(state, bagId, slotIndex)`: the item's current location, not a link. House-chest items count as inaccessible (base UI rule) |
+| `GetNumUnlockedArmoryBuilds()` / `GetArmoryBuild*(buildIndex, ...)` | In-game Armory builds, logged-in character only. `GetArmoryBuildEquipSlotInfo` returns `(state, bagId, slotIndex)`: the item's current location, not a link. House-chest items count as inaccessible (base UI rule). `GetArmoryBuildSlotBoundId` (skills and CP) returns 0 until the client has visited an Armory station; the other getters work anywhere |
 | `GetEffectiveAbilityIdForAbilityOnHotbarForArmoryBuild(id, buildIndex, hotbarCategory)` | Morphed/scribed id for an Armory bar slot |
 | `GetNumAchievementCategories()` | Total number of top-level achievement categories (confirmed: returns 47) |
 | `GetAchievementCategoryInfo(categoryIndex)` | Takes a **1-based index**, not an ID. Returns `(name, numSubCategories, numAchievements, earnedPts, totalPts, hidesPoints)`. r4/r5 are confirmed to match the in-game summary UI (e.g. CHARACTER: 3120/5325). **`GetAchievementCategoryId` does not exist** — confirmed nil at runtime. |

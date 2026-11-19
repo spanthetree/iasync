@@ -125,6 +125,7 @@ iasync_data = {
                  disciplines = { [disciplineId] = { name, spent } } },  -- no per-star allocation
           attributes = { health, magicka, stamina },
           mundus = { "Stone Name", ... },       -- nil if none; same shape as build_mundus
+          barsUpdate,                           -- unix ts when bars/effectiveBars/cp.slots were last read; nil if never
         },
       },
       armoryBuildsUpdate,                       -- unix timestamp of the last Armory scan
@@ -249,7 +250,7 @@ Lua tables with integer keys (bag IDs, slot IDs, set IDs) become string keys whe
 
 - **Guild banks**: each guild bank is captured only after you view it, and only if you have permission to see its contents.
 - **Ability names**: names are resolved only for the logged-in character, because `GetAbilityName` cannot resolve another class's abilities.
-- **Armory builds**: only the logged-in character's builds can be read, so log into each character once. An item sold or deconstructed since the build was saved reads `missing` with no link.
+- **Armory builds**: only the logged-in character's builds can be read, so log into each character once. An item sold or deconstructed since the build was saved reads `missing` with no link. Skill bars and slotted Champion stars only load after you visit an Armory station; until then each scan keeps the last ones read (see `barsUpdate`).
 - **Achievement attribution**: the character who earned an account-wide achievement is reported only when ESO can resolve it.
 
 ## Design notes

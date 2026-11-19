@@ -32,7 +32,10 @@ function GetArmoryBuildEquipSlotInfo(i, slot)
     if slot == 2 then return ARMORY_BUILD_EQUIP_SLOT_STATE_MISSING end
     return ARMORY_BUILD_EQUIP_SLOT_STATE_EMPTY
 end
-function GetArmoryBuildSlotBoundId(_, slot, cat)
+local barsAway = false
+function GetArmoryBuildSlotBoundId(i, slot, cat)
+    if barsAway then return 0 end
+    if i == 2 then return 0 end
     if cat == HOTBAR_CATEGORY_PRIMARY and slot == 3 then return 100 end
     if cat == HOTBAR_CATEGORY_CHAMPION and slot == 1 then return 9 end
     return 0
@@ -62,8 +65,19 @@ assert(b.attributes.magicka == 64 and b.attributes.health == 0)
 assert(#b.mundus == 1 and b.mundus[1] == "The Lady")
 assert(builds[2].name == "Build 2" and next(builds[2].gear) == nil)
 assert(iasync_data.chars["123"].armoryBuildsUpdate == 7)
+assert(b.barsUpdate == 7)
+assert(next(builds[2].bars.primary) == nil and builds[2].barsUpdate == 7)  -- loaded and really empty
+
+-- Away from a station every slot reads 0: keep the saved bars and stars, refresh the rest.
+barsAway = true
+function GetTimeStamp() return 8 end
+function GetArmoryBuildName(i) return "Renamed " .. i end
+scan()
+b = iasync_data.chars["123"].armoryBuilds[1]
+assert(b.name == "Renamed 1" and b.bars.primary[3] == 100 and b.effectiveBars.primary[3] == 101)
+assert(b.cp.slots[1] == 9 and b.cp.disciplines[4].spent == 210 and b.barsUpdate == 7)
 
 numBuilds = 0
 scan()
-assert(iasync_data.chars["123"].armoryBuilds[1].name == "Build 1")
+assert(iasync_data.chars["123"].armoryBuilds[1].name == "Renamed 1")
 print("Armory build tests passed")

@@ -542,13 +542,27 @@ local function ScanArmoryBuilds()
     local charId = tostring(GetCurrentCharacterId())
     local c = iasync_data.chars[charId]
     if not c then return end
-    local builds = {}
+    local builds, barsLoaded = {}, false
     for i = 1, count do
         local okBuild, build = pcall(ScanArmoryBuild, i)
         if okBuild then
             builds[i] = build
+            if next(build.bars.primary) or next(build.bars.backup) or next(build.cp.slots) then barsLoaded = true end
         else
             d(string.format("[iasync] Armory build %d scan failed: %s", i, tostring(build)))
+        end
+    end
+    -- GetArmoryBuildSlotBoundId returns 0 until the client has visited an Armory station this session.
+    -- If any build has a skill or star, the data is loaded and empty builds really are empty; otherwise keep the old bars.
+    -- shortcut: if every build was truly saved with no skills and no stars, it looks like "not loaded" and old bars stay.
+    local old, now = c.armoryBuilds or {}, GetTimeStamp()
+    for i, build in pairs(builds) do
+        local prev = old[i]
+        if barsLoaded then
+            build.barsUpdate = now
+        elseif type(prev) == "table" and prev.bars then
+            build.bars, build.effectiveBars, build.barsUpdate = prev.bars, prev.effectiveBars, prev.barsUpdate
+            build.cp.slots = (prev.cp and prev.cp.slots) or build.cp.slots
         end
     end
     c.armoryBuilds = builds
